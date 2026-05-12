@@ -13,7 +13,9 @@ authors = [
     { name = "David Brownell", email = "github@davidbrownell.com" }
 ]
 requires-python = ">= 3.14"
-dependencies = []
+dependencies = [
+    "jinja2>=3.1.6",
+]
 classifiers = [
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
