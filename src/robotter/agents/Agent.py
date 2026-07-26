@@ -89,7 +89,7 @@ class Agent(ABC):
     def GetProjectConfigurationPaths(cls, project_root: Path) -> list[Path]:
         """Return the project configuration paths resolved against `project_root`."""
 
-        return [project_root / path for path in cls._EnumProjectConfigurationPaths()]
+        return [project_root / path for path in cls._EnumProjectConfigurationNames()]
 
     # ----------------------------------------------------------------------
     # |
@@ -106,5 +106,5 @@ class Agent(ABC):
     # ----------------------------------------------------------------------
     @staticmethod
     @abstractmethod
-    def _EnumProjectConfigurationPaths() -> Iterator[str]:
+    def _EnumProjectConfigurationNames() -> Iterator[str]:
         """Enumerate the project configuration path(s), each relative to a project's root directory."""

@@ -24,5 +24,5 @@ class ClaudeCode(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumProjectConfigurationPaths() -> Iterator[str]:
+    def _EnumProjectConfigurationNames() -> Iterator[str]:
         yield "CLAUDE.md"
