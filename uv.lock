@@ -558,6 +558,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -572,7 +573,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "jinja2", specifier = ">=3.1.6" }]
+requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "typer", specifier = ">=0.24.1" },
+]
 
 [package.metadata.requires-dev]
 dev = [
