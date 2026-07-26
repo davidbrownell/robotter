@@ -24,5 +24,5 @@ class OpenAICodex(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumProjectConfigurationPaths() -> Iterator[str]:
+    def _EnumProjectConfigurationNames() -> Iterator[str]:
         yield "AGENTS.md"

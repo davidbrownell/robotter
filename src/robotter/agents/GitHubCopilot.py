@@ -26,5 +26,5 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumProjectConfigurationPaths() -> Iterator[str]:
+    def _EnumProjectConfigurationNames() -> Iterator[str]:
         yield ".github/copilot-instructions.md"

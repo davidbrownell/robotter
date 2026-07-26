@@ -37,7 +37,7 @@ def Parse(
     env.globals["include_configuration"] = IncludeConfiguration  # ty: ignore[invalid-assignment]
 
     # Read the content of the file
-    raw_content = content.read_text()
+    raw_content = content.read_text(encoding="utf-8")
 
     # Split the content into frontmatter and main content
     if raw_content.startswith("---"):

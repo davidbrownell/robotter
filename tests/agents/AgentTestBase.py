@@ -42,8 +42,8 @@ class AgentTestBase:
         assert templates == self.global_templates[operating_system]
 
     # ----------------------------------------------------------------------
-    def test_enum_project_configuration_paths(self):
-        assert list(self.agent_type._EnumProjectConfigurationPaths()) == self.project_paths
+    def test_enum_project_configuration_names(self):
+        assert list(self.agent_type._EnumProjectConfigurationNames()) == self.project_paths
 
     # ----------------------------------------------------------------------
     def test_get_global_configuration_paths(self, tmp_path, monkeypatch):
