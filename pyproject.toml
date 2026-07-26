@@ -15,6 +15,7 @@ authors = [
 requires-python = ">= 3.14"
 dependencies = [
     "jinja2>=3.1.6",
+    "typer>=0.24.1",
 ]
 classifiers = [
     "Operating System :: MacOS",
