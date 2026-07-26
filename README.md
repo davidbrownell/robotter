@@ -25,10 +25,47 @@
 - [License](#license)
 
 ## Overview
-TODO: Complete this section
+`robotter` composes GenAI "dotfiles" (the instruction/configuration files read by AI coding agents) from a single source template.
+
+Different agents read their configuration from different locations under different filenames. `robotter` renders one [Jinja2](https://jinja.palletsprojects.com/) template and writes the result to the appropriate location(s) for a target agent, at either global (user-level) or project scope:
+
+| Agent | Value | Project Configuration | Global Configuration |
+| --- | --- | --- | --- |
+| Claude Code | `claude-code` | `CLAUDE.md` | `~/.claude/CLAUDE.md` |
+| GitHub Copilot | `github-copilot` | `.github/copilot-instructions.md` | `<VS Code user>/prompts` |
+| OpenAI Codex | `openai-codex` | `AGENTS.md` | `~/.codex/AGENTS.md` |
+| OpenCode | `opencode` | `AGENTS.md` | `~/.config/opencode/AGENTS.md` |
+
+Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved in the rendered output) and may compose other templates via the `include_configuration("<relative path>")` function, letting you maintain shared content once and assemble agent-specific files from it.
 
 ### How to use `robotter`
-TODO: Complete this section
+Render a template to an agent's configuration location(s):
+
+```shell
+robotter <template> <agent> [--output-dir <dir>] [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<template>` | Path to the template file to render. |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `--output-dir <dir>` | Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+**Examples**
+
+Render `instructions.md` to the current user's global Claude Code configuration:
+
+```shell
+robotter instructions.md claude-code
+```
+
+Render `instructions.md` to the project-level OpenCode configuration under `./my-project`:
+
+```shell
+robotter instructions.md opencode --output-dir ./my-project
+```
 
 <!-- Content below this delimiter will be copied to the generated README.md file. DO NOT REMOVE THIS COMMENT, as it will cause regeneration to fail. -->
 
