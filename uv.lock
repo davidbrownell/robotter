@@ -557,6 +557,7 @@ name = "robotter"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "dbrownell-common" },
     { name = "jinja2" },
     { name = "typer" },
 ]
@@ -574,6 +575,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "dbrownell-common", specifier = ">=0.16.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "typer", specifier = ">=0.24.1" },
 ]
