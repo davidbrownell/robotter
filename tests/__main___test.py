@@ -63,7 +63,7 @@ class TestDispatch:
     ):
         render_global, render_local = render_spies
 
-        result = runner.invoke(app, [str(template), agent_type.value])
+        result = runner.invoke(app, ["render", str(template), agent_type.value])
 
         assert result.exit_code == 0, result.output
         render_global.assert_called_once()
@@ -78,7 +78,7 @@ class TestDispatch:
     ):
         render_global, render_local = render_spies
 
-        result = runner.invoke(app, [str(template), AgentType.ClaudeCode.value])
+        result = runner.invoke(app, ["render", str(template), AgentType.ClaudeCode.value])
 
         assert result.exit_code == 0, result.output
         render_global.assert_called_once()
@@ -99,7 +99,7 @@ class TestDispatch:
 
         result = runner.invoke(
             app,
-            [str(template), AgentType.ClaudeCode.value, "--output-dir", str(output_dir)],
+            ["render", str(template), AgentType.ClaudeCode.value, str(output_dir)],
         )
 
         assert result.exit_code == 0, result.output
@@ -121,7 +121,9 @@ class TestErrors:
     ):
         render_global, render_local = render_spies
 
-        result = runner.invoke(app, [str(tmp_path / "does_not_exist.md"), AgentType.ClaudeCode.value])
+        result = runner.invoke(
+            app, ["render", str(tmp_path / "does_not_exist.md"), AgentType.ClaudeCode.value]
+        )
 
         assert result.exit_code != 0
         render_global.assert_not_called()
@@ -135,7 +137,7 @@ class TestErrors:
     ):
         render_global, render_local = render_spies
 
-        result = runner.invoke(app, [str(tmp_path), AgentType.ClaudeCode.value])
+        result = runner.invoke(app, ["render", str(tmp_path), AgentType.ClaudeCode.value])
 
         assert result.exit_code != 0
         render_global.assert_not_called()
@@ -149,7 +151,7 @@ class TestErrors:
     ):
         render_global, render_local = render_spies
 
-        result = runner.invoke(app, [str(template), "not-an-agent"])
+        result = runner.invoke(app, ["render", str(template), "not-an-agent"])
 
         assert result.exit_code != 0
         render_global.assert_not_called()
@@ -163,7 +165,7 @@ class TestErrors:
     ):
         render_global, render_local = render_spies
 
-        result = runner.invoke(app, [str(template)])
+        result = runner.invoke(app, ["render", str(template)])
 
         assert result.exit_code != 0
         render_global.assert_not_called()
@@ -180,7 +182,7 @@ class TestIntegration:
 
         result = runner.invoke(
             app,
-            [str(template), AgentType.ClaudeCode.value, "--output-dir", str(output_dir)],
+            ["render", str(template), AgentType.ClaudeCode.value, str(output_dir)],
         )
 
         assert result.exit_code == 0, result.output

@@ -53,8 +53,8 @@ app = typer.Typer(
 
 
 # ----------------------------------------------------------------------
-@app.command("EntryPoint", no_args_is_help=True)
-def EntryPoint(
+@app.command("render", no_args_is_help=True)
+def Render(
     template: Annotated[
         Path,
         typer.Argument(
@@ -72,8 +72,7 @@ def EntryPoint(
     ],
     output_dir: Annotated[
         Path | None,
-        typer.Option(
-            "--output-dir",
+        typer.Argument(
             file_okay=False,
             resolve_path=True,
             help="Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered.",
@@ -100,6 +99,14 @@ def EntryPoint(
                 RenderGlobal(template, agent_instance)
             else:
                 RenderLocal(template, agent_instance, output_dir)
+
+
+# ----------------------------------------------------------------------
+@app.callback()
+def main() -> None:  # noqa: D103
+    # Ensure that the entry point is required on the command line, as we are likely to extend the
+    # functionality in the future.
+    pass
 
 
 # ----------------------------------------------------------------------
