@@ -8,7 +8,7 @@ import typer
 from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManagerFlags
 from typer.core import TyperGroup
 
-from robotter.Lib import RenderGlobal, RenderLocal
+from robotter.Lib import EditGlobal, EditLocal, RenderGlobal, RenderLocal
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.GitHubCopilot import GitHubCopilot
@@ -102,11 +102,43 @@ def Render(
 
 
 # ----------------------------------------------------------------------
-@app.callback()
-def main() -> None:  # noqa: D103
-    # Ensure that the entry point is required on the command line, as we are likely to extend the
-    # functionality in the future.
-    pass
+@app.command("edit", no_args_is_help=True)
+def Edit(
+    agent: Annotated[
+        AgentType,
+        typer.Argument(
+            help="Agent whose configuration file should be edited.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path | None,
+        typer.Argument(
+            file_okay=False,
+            resolve_path=True,
+            help="Edit project-level configuration under this directory. When omitted, global (user-level) configuration is edited.",
+        ),
+    ] = None,
+    verbose: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--verbose", help="Write verbose information to the terminal."),
+    ] = False,
+    debug: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--debug", help="Write debug information to the terminal."),
+    ] = False,
+) -> None:
+    """Launch an AI agent's configuration file in an editor."""
+
+    with DoneManager.CreateCommandLine(
+        flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        agent_instance = _AGENTS[agent]()
+
+        with dm.Nested(f"Editing '{agent.name}'..."):
+            if output_dir is None:
+                EditGlobal(agent_instance)
+            else:
+                EditLocal(agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------

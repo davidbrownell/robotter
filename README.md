@@ -67,6 +67,36 @@ Render `instructions.md` to the project-level OpenCode configuration under `./my
 uvx robotter render instructions.md opencode ./my-project
 ```
 
+### Editing an agent's configuration
+Open an agent's rendered configuration file in an editor:
+
+```shell
+uvx robotter edit <agent> [<dir>] [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `<dir>` | Edit project-level configuration under this directory. When omitted, global (user-level) configuration is edited. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The configuration file must already exist (for example, produced by a prior `render`); `edit` fails if it does not. The editor is selected from the `VISUAL` or `EDITOR` environment variable when set, otherwise the operating system's default handler for the file is used.
+
+**Examples**
+
+Edit the current user's global Claude Code configuration:
+
+```shell
+uvx robotter edit claude-code
+```
+
+Edit the project-level OpenCode configuration under `./my-project`:
+
+```shell
+uvx robotter edit opencode ./my-project
+```
+
 ### Example Configuration
 A configuration file is a [Jinja2](https://jinja.palletsprojects.com/) template with optional [YAML](https://yaml.org/) frontmatter. Use the `include_configuration("<relative path>")` function to compose shared content from another configuration file, letting you maintain that content once and reuse it across multiple templates.
 
