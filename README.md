@@ -42,14 +42,14 @@ Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved 
 Render a template to an agent's configuration location(s):
 
 ```shell
-robotter <template> <agent> [--output-dir <dir>] [--verbose] [--debug]
+uvx robotter <template> <agent> [<dir>] [--verbose] [--debug]
 ```
 
 | Argument / Option | Description |
 | --- | --- |
 | `<template>` | Path to the template file to render. |
 | `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
-| `--output-dir <dir>` | Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered. |
+| `<dir>` | Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
 
@@ -58,18 +58,64 @@ robotter <template> <agent> [--output-dir <dir>] [--verbose] [--debug]
 Render `instructions.md` to the current user's global Claude Code configuration:
 
 ```shell
-robotter instructions.md claude-code
+uvx robotter instructions.md claude-code
 ```
 
 Render `instructions.md` to the project-level OpenCode configuration under `./my-project`:
 
 ```shell
-robotter instructions.md opencode --output-dir ./my-project
+uvx robotter instructions.md opencode ./my-project
+```
+
+### Example Configuration
+A configuration file is a [Jinja2](https://jinja.palletsprojects.com/) template with optional [YAML](https://yaml.org/) frontmatter. Use the `include_configuration("<relative path>")` function to compose shared content from another configuration file, letting you maintain that content once and reuse it across multiple templates.
+
+The following `instructions.md` template includes a shared `shared/coding-standards.md` file:
+
+```jinja
+---
+description: Instructions for AI coding agents
+---
+# Project Instructions
+
+## Overview
+This project composes GenAI dotfiles from a single source template.
+
+## Coding Standards
+{{ include_configuration("shared/coding-standards.md") }}
+```
+
+The included `shared/coding-standards.md` file (its frontmatter, if any, is ignored when included):
+
+```markdown
+- Prefer clarity over cleverness.
+- Write tests for all new functionality.
+- Document public interfaces.
+```
+
+The path passed to `include_configuration` is resolved relative to the file that contains the call, so a template in one directory can include a file located in a subdirectory (`"shared/coding-standards.md"`) or a parent directory (`"../coding-standards.md"`). Included files may themselves call `include_configuration`, allowing configuration to be composed from arbitrarily nested fragments.
+
+Rendering the `instructions.md` template above produces the following output (the frontmatter is preserved; the `include_configuration` call is replaced with the rendered content of the included file):
+
+```markdown
+---
+description: Instructions for AI coding agents
+---
+# Project Instructions
+
+## Overview
+This project composes GenAI dotfiles from a single source template.
+
+## Coding Standards
+- Prefer clarity over cleverness.
+- Write tests for all new functionality.
+- Document public interfaces.
 ```
 
 <!-- Content below this delimiter will be copied to the generated README.md file. DO NOT REMOVE THIS COMMENT, as it will cause regeneration to fail. -->
 
 ## Installation
+Note that it isn't necessary to install `robotter` when running via `uvx`.
 
 | Installation Method | Command |
 | --- | --- |
