@@ -45,6 +45,30 @@ def EditLocal(agent: Agent, output_dir: Path) -> None:
 
 
 # ----------------------------------------------------------------------
+def BrowseGlobal(agent: Agent) -> None:
+    """Open the directory containing `agent`'s global (user-level) configuration file in a file browser."""
+
+    paths = agent.GetGlobalConfigurationPaths()
+
+    if not paths:
+        msg = "The agent does not define any configuration locations."
+        raise ValueError(msg)
+
+    directory = paths[0].parent
+
+    if not directory.is_dir():
+        msg = f"The configuration directory '{directory}' does not exist."
+        raise FileNotFoundError(msg)
+
+    if sys.platform.startswith("win"):
+        os.startfile(directory)  # type: ignore[attr-defined]  # noqa: S606
+    elif sys.platform == "darwin":
+        subprocess.run(["open", str(directory)], check=True)  # noqa: S603, S607
+    else:
+        subprocess.run(["xdg-open", str(directory)], check=True)  # noqa: S603, S607
+
+
+# ----------------------------------------------------------------------
 # |
 # |  Private Functions
 # |

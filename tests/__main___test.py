@@ -57,6 +57,18 @@ def edit_spies(monkeypatch: pytest.MonkeyPatch) -> tuple[MagicMock, MagicMock]:
 
 
 # ----------------------------------------------------------------------
+@pytest.fixture
+def browse_spy(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Replace the browse function so tests never open a real file browser."""
+
+    browse_global = MagicMock()
+
+    monkeypatch.setattr(main_module, "BrowseGlobal", browse_global)
+
+    return browse_global
+
+
+# ----------------------------------------------------------------------
 class TestDispatch:
     # ----------------------------------------------------------------------
     @pytest.mark.parametrize(
@@ -208,6 +220,51 @@ class TestEditDispatch:
         assert result.exit_code != 0
         edit_global.assert_not_called()
         edit_local.assert_not_called()
+
+
+# ----------------------------------------------------------------------
+class TestBrowseDispatch:
+    # ----------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        ("agent_type", "agent_cls"),
+        [
+            (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.OpenAICodex, OpenAICodex),
+            (AgentType.OpenCode, OpenCode),
+        ],
+    )
+    def test_selects_the_requested_agent(
+        self,
+        agent_type: AgentType,
+        agent_cls: type,
+        browse_spy: MagicMock,
+    ):
+        result = runner.invoke(app, ["browse", agent_type.value])
+
+        assert result.exit_code == 0, result.output
+        browse_spy.assert_called_once()
+        assert isinstance(browse_spy.call_args.args[0], agent_cls)
+
+    # ----------------------------------------------------------------------
+    def test_unknown_agent_fails(
+        self,
+        browse_spy: MagicMock,
+    ):
+        result = runner.invoke(app, ["browse", "not-an-agent"])
+
+        assert result.exit_code != 0
+        browse_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_agent_fails(
+        self,
+        browse_spy: MagicMock,
+    ):
+        result = runner.invoke(app, ["browse"])
+
+        assert result.exit_code != 0
+        browse_spy.assert_not_called()
 
 
 # ----------------------------------------------------------------------

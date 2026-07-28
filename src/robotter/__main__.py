@@ -8,7 +8,7 @@ import typer
 from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManagerFlags
 from typer.core import TyperGroup
 
-from robotter.Lib import EditGlobal, EditLocal, RenderGlobal, RenderLocal
+from robotter.Lib import BrowseGlobal, EditGlobal, EditLocal, RenderGlobal, RenderLocal
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.GitHubCopilot import GitHubCopilot
@@ -139,6 +139,35 @@ def Edit(
                 EditGlobal(agent_instance)
             else:
                 EditLocal(agent_instance, output_dir)
+
+
+# ----------------------------------------------------------------------
+@app.command("browse", no_args_is_help=True)
+def Browse(
+    agent: Annotated[
+        AgentType,
+        typer.Argument(
+            help="Agent whose global configuration directory should be opened.",
+        ),
+    ],
+    verbose: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--verbose", help="Write verbose information to the terminal."),
+    ] = False,
+    debug: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--debug", help="Write debug information to the terminal."),
+    ] = False,
+) -> None:
+    """Open an AI agent's global configuration directory in a file browser."""
+
+    with DoneManager.CreateCommandLine(
+        flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        agent_instance = _AGENTS[agent]()
+
+        with dm.Nested(f"Browsing '{agent.name}'..."):
+            BrowseGlobal(agent_instance)
 
 
 # ----------------------------------------------------------------------

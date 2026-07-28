@@ -19,6 +19,9 @@
 
 ## Contents
 - [Overview](#overview)
+  - [Rendering a template](#how-to-use-robotter)
+  - [Editing an agent's configuration](#editing-an-agents-configuration)
+  - [Browsing an agent's global configuration](#browsing-an-agents-global-configuration)
 - [Installation](#installation)
 - [Development](#development)
 - [Additional Information](#additional-information)
@@ -95,6 +98,29 @@ Edit the project-level OpenCode configuration under `./my-project`:
 
 ```shell
 uvx robotter edit opencode ./my-project
+```
+
+### Browsing an agent's global configuration
+Open an agent's global (user-level) configuration directory in a file browser:
+
+```shell
+uvx robotter browse <agent> [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The directory is opened using the operating system's default file browser. The directory must already exist (for example, produced by a prior `render`); `browse` fails if it does not.
+
+**Example**
+
+Browse the current user's global Claude Code configuration directory:
+
+```shell
+uvx robotter browse claude-code
 ```
 
 ### Example Configuration
