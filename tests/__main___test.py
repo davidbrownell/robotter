@@ -99,7 +99,7 @@ class TestDispatch:
 
         result = runner.invoke(
             app,
-            [str(template), AgentType.ClaudeCode.value, "--output-dir", str(output_dir)],
+            [str(template), AgentType.ClaudeCode.value, str(output_dir)],
         )
 
         assert result.exit_code == 0, result.output
@@ -180,7 +180,7 @@ class TestIntegration:
 
         result = runner.invoke(
             app,
-            [str(template), AgentType.ClaudeCode.value, "--output-dir", str(output_dir)],
+            [str(template), AgentType.ClaudeCode.value, str(output_dir)],
         )
 
         assert result.exit_code == 0, result.output

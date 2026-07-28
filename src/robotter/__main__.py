@@ -72,8 +72,7 @@ def EntryPoint(
     ],
     output_dir: Annotated[
         Path | None,
-        typer.Option(
-            "--output-dir",
+        typer.Argument(
             file_okay=False,
             resolve_path=True,
             help="Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered.",
