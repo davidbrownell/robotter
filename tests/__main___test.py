@@ -43,6 +43,20 @@ def render_spies(monkeypatch: pytest.MonkeyPatch) -> tuple[MagicMock, MagicMock]
 
 
 # ----------------------------------------------------------------------
+@pytest.fixture
+def edit_spies(monkeypatch: pytest.MonkeyPatch) -> tuple[MagicMock, MagicMock]:
+    """Replace the edit functions so tests never launch a real editor."""
+
+    edit_global = MagicMock()
+    edit_local = MagicMock()
+
+    monkeypatch.setattr(main_module, "EditGlobal", edit_global)
+    monkeypatch.setattr(main_module, "EditLocal", edit_local)
+
+    return edit_global, edit_local
+
+
+# ----------------------------------------------------------------------
 class TestDispatch:
     # ----------------------------------------------------------------------
     @pytest.mark.parametrize(
@@ -109,6 +123,91 @@ class TestDispatch:
         passed_template, _agent, passed_output_dir = render_local.call_args.args
         assert Path(passed_template).resolve() == template.resolve()
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
+
+
+# ----------------------------------------------------------------------
+class TestEditDispatch:
+    # ----------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        ("agent_type", "agent_cls"),
+        [
+            (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.OpenAICodex, OpenAICodex),
+            (AgentType.OpenCode, OpenCode),
+        ],
+    )
+    def test_selects_the_requested_agent(
+        self,
+        agent_type: AgentType,
+        agent_cls: type,
+        edit_spies: tuple[MagicMock, MagicMock],
+    ):
+        edit_global, edit_local = edit_spies
+
+        result = runner.invoke(app, ["edit", agent_type.value])
+
+        assert result.exit_code == 0, result.output
+        edit_global.assert_called_once()
+        edit_local.assert_not_called()
+        assert isinstance(edit_global.call_args.args[0], agent_cls)
+
+    # ----------------------------------------------------------------------
+    def test_no_output_dir_edits_global(
+        self,
+        edit_spies: tuple[MagicMock, MagicMock],
+    ):
+        edit_global, edit_local = edit_spies
+
+        result = runner.invoke(app, ["edit", AgentType.ClaudeCode.value])
+
+        assert result.exit_code == 0, result.output
+        edit_global.assert_called_once()
+        edit_local.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_output_dir_edits_local(
+        self,
+        tmp_path: Path,
+        edit_spies: tuple[MagicMock, MagicMock],
+    ):
+        edit_global, edit_local = edit_spies
+        output_dir = tmp_path / "out"
+
+        result = runner.invoke(app, ["edit", AgentType.ClaudeCode.value, str(output_dir)])
+
+        assert result.exit_code == 0, result.output
+        edit_local.assert_called_once()
+        edit_global.assert_not_called()
+
+        _agent, passed_output_dir = edit_local.call_args.args
+        assert Path(passed_output_dir).resolve() == output_dir.resolve()
+
+    # ----------------------------------------------------------------------
+    def test_unknown_agent_fails(
+        self,
+        edit_spies: tuple[MagicMock, MagicMock],
+    ):
+        edit_global, edit_local = edit_spies
+
+        result = runner.invoke(app, ["edit", "not-an-agent"])
+
+        assert result.exit_code != 0
+        edit_global.assert_not_called()
+        edit_local.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_agent_fails(
+        self,
+        edit_spies: tuple[MagicMock, MagicMock],
+    ):
+        edit_global, edit_local = edit_spies
+
+        result = runner.invoke(app, ["edit"])
+
+        assert result.exit_code != 0
+        edit_global.assert_not_called()
+        edit_local.assert_not_called()
 
 
 # ----------------------------------------------------------------------

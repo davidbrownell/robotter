@@ -1,5 +1,9 @@
 """High-level operations that render templates into agent configuration locations."""
 
+import os
+import subprocess
+import sys
+
 from typing import TYPE_CHECKING
 
 from jinja2 import Environment
@@ -27,6 +31,20 @@ def RenderLocal(template: Path, agent: Agent, output_dir: Path) -> None:
 
 
 # ----------------------------------------------------------------------
+def EditGlobal(agent: Agent) -> None:
+    """Launch an editor on `agent`'s global (user-level) configuration file."""
+
+    _Edit(agent.GetGlobalConfigurationPaths())
+
+
+# ----------------------------------------------------------------------
+def EditLocal(agent: Agent, output_dir: Path) -> None:
+    """Launch an editor on `agent`'s project configuration file under `output_dir`."""
+
+    _Edit(agent.GetProjectConfigurationPaths(output_dir))
+
+
+# ----------------------------------------------------------------------
 # |
 # |  Private Functions
 # |
@@ -42,3 +60,32 @@ def _Render(template: Path, paths: list[Path]) -> None:
     for path in paths:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+
+
+# ----------------------------------------------------------------------
+def _Edit(paths: list[Path]) -> None:
+    """Launch an editor on the first path in `paths`.
+
+    The editor is honored from `$VISUAL`/`$EDITOR` and otherwise falls back to the
+    operating system's default handler.
+    """
+
+    if not paths:
+        msg = "The agent does not define any configuration locations."
+        raise ValueError(msg)
+
+    path = paths[0]
+
+    if not path.is_file():
+        msg = f"The configuration file '{path}' does not exist."
+        raise FileNotFoundError(msg)
+
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
+    if editor:
+        subprocess.run([editor, str(path)], check=True)  # noqa: S603
+    elif sys.platform.startswith("win"):
+        os.startfile(path)  # type: ignore[attr-defined]  # noqa: S606
+    elif sys.platform == "darwin":
+        subprocess.run(["open", str(path)], check=True)  # noqa: S603, S607
+    else:
+        subprocess.run(["xdg-open", str(path)], check=True)  # noqa: S603, S607
