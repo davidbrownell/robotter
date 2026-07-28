@@ -53,8 +53,8 @@ app = typer.Typer(
 
 
 # ----------------------------------------------------------------------
-@app.command("EntryPoint", no_args_is_help=True)
-def EntryPoint(
+@app.command("render", no_args_is_help=True)
+def Render(
     template: Annotated[
         Path,
         typer.Argument(
@@ -99,6 +99,14 @@ def EntryPoint(
                 RenderGlobal(template, agent_instance)
             else:
                 RenderLocal(template, agent_instance, output_dir)
+
+
+# ----------------------------------------------------------------------
+@app.callback()
+def main() -> None:  # noqa: D103
+    # Ensure that the entry point is required on the command line, as we are likely to extend the
+    # functionality in the future.
+    pass
 
 
 # ----------------------------------------------------------------------

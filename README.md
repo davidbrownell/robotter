@@ -42,7 +42,7 @@ Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved 
 Render a template to an agent's configuration location(s):
 
 ```shell
-uvx robotter <template> <agent> [<dir>] [--verbose] [--debug]
+uvx robotter render <template> <agent> [<dir>] [--verbose] [--debug]
 ```
 
 | Argument / Option | Description |
@@ -58,13 +58,13 @@ uvx robotter <template> <agent> [<dir>] [--verbose] [--debug]
 Render `instructions.md` to the current user's global Claude Code configuration:
 
 ```shell
-uvx robotter instructions.md claude-code
+uvx robotter render instructions.md claude-code
 ```
 
 Render `instructions.md` to the project-level OpenCode configuration under `./my-project`:
 
 ```shell
-uvx robotter instructions.md opencode ./my-project
+uvx robotter render instructions.md opencode ./my-project
 ```
 
 ### Example Configuration
