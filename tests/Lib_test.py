@@ -10,7 +10,7 @@ import pytest
 import robotter.Lib as lib_module
 
 from robotter.agents.Agent import Agent, OperatingSystem
-from robotter.Lib import EditGlobal, EditLocal, RenderGlobal, RenderLocal
+from robotter.Lib import BrowseGlobal, EditGlobal, EditLocal, RenderGlobal, RenderLocal
 
 
 # ----------------------------------------------------------------------
@@ -398,6 +398,92 @@ class TestEditGlobal:
 
         with pytest.raises(FileNotFoundError):
             EditGlobal(agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+
+# ----------------------------------------------------------------------
+class TestBrowseGlobal:
+    # ----------------------------------------------------------------------
+    def test_windows_opens_configuration_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "win32")
+        target = tmp_path / "config" / "CONFIG.md"
+        target.parent.mkdir()
+        agent = _MakeAgent(global_paths=(str(target),))
+
+        BrowseGlobal(agent)
+
+        startfile_spy.assert_called_once_with(target.parent)
+        run_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_macos_opens_configuration_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "darwin")
+        target = tmp_path / "config" / "CONFIG.md"
+        target.parent.mkdir()
+        agent = _MakeAgent(global_paths=(str(target),))
+
+        BrowseGlobal(agent)
+
+        run_spy.assert_called_once_with(["open", str(target.parent)], check=True)
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_linux_opens_configuration_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "linux")
+        target = tmp_path / "config" / "CONFIG.md"
+        target.parent.mkdir()
+        agent = _MakeAgent(global_paths=(str(target),))
+
+        BrowseGlobal(agent)
+
+        run_spy.assert_called_once_with(["xdg-open", str(target.parent)], check=True)
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_directory_raises(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(global_paths=(str(tmp_path / "config" / "CONFIG.md"),))
+
+        with pytest.raises(FileNotFoundError):
+            BrowseGlobal(agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_no_global_paths_raises(
+        self,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(global_paths=())
+
+        with pytest.raises(ValueError, match="does not define any configuration locations"):
+            BrowseGlobal(agent)
 
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
