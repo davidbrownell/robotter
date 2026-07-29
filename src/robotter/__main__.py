@@ -9,7 +9,19 @@ from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManag
 from typer.core import TyperGroup
 
 from robotter import __version__
-from robotter.Lib import BrowseGlobal, EditGlobal, EditLocal, RenderGlobal, RenderLocal
+from robotter.Lib import (
+    BrowseGlobal,
+    BrowseGlobalSkills,
+    BrowseLocalSkills,
+    EditGlobal,
+    EditGlobalSkill,
+    EditLocal,
+    EditLocalSkill,
+    RenderGlobal,
+    RenderGlobalSkill,
+    RenderLocal,
+    RenderLocalSkill,
+)
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.GitHubCopilot import GitHubCopilot
@@ -103,6 +115,55 @@ def Render(
 
 
 # ----------------------------------------------------------------------
+@app.command("render_skill", no_args_is_help=True)
+def RenderSkill(
+    template: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            dir_okay=False,
+            resolve_path=True,
+            help="Skill template file to render.",
+        ),
+    ],
+    agent: Annotated[
+        AgentType,
+        typer.Argument(
+            help="Agent to render the skill for.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path | None,
+        typer.Argument(
+            file_okay=False,
+            resolve_path=True,
+            help="Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered.",
+        ),
+    ] = None,
+    verbose: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--verbose", help="Write verbose information to the terminal."),
+    ] = False,
+    debug: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--debug", help="Write debug information to the terminal."),
+    ] = False,
+) -> None:
+    """Render a skill template to the skill location of an AI agent."""
+
+    with DoneManager.CreateCommandLine(
+        flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        agent_instance = _AGENTS[agent]()
+
+        with dm.Nested(f"Rendering skill '{agent.name}'..."):
+            if output_dir is None:
+                RenderGlobalSkill(template, agent_instance)
+            else:
+                RenderLocalSkill(template, agent_instance, output_dir)
+
+
+# ----------------------------------------------------------------------
 @app.command("edit", no_args_is_help=True)
 def Edit(
     agent: Annotated[
@@ -143,6 +204,52 @@ def Edit(
 
 
 # ----------------------------------------------------------------------
+@app.command("edit_skill", no_args_is_help=True)
+def EditSkill(
+    skill_name: Annotated[
+        str,
+        typer.Argument(
+            help="Name of the skill to edit.",
+        ),
+    ],
+    agent: Annotated[
+        AgentType,
+        typer.Argument(
+            help="Agent whose skill file should be edited.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path | None,
+        typer.Argument(
+            file_okay=False,
+            resolve_path=True,
+            help="Edit the project-level skill under this directory. When omitted, the global (user-level) skill is edited.",
+        ),
+    ] = None,
+    verbose: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--verbose", help="Write verbose information to the terminal."),
+    ] = False,
+    debug: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--debug", help="Write debug information to the terminal."),
+    ] = False,
+) -> None:
+    """Launch an AI agent's skill file in an editor."""
+
+    with DoneManager.CreateCommandLine(
+        flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        agent_instance = _AGENTS[agent]()
+
+        with dm.Nested(f"Editing skill '{agent.name}'..."):
+            if output_dir is None:
+                EditGlobalSkill(skill_name, agent_instance)
+            else:
+                EditLocalSkill(skill_name, agent_instance, output_dir)
+
+
+# ----------------------------------------------------------------------
 @app.command("browse", no_args_is_help=True)
 def Browse(
     agent: Annotated[
@@ -172,9 +279,49 @@ def Browse(
 
 
 # ----------------------------------------------------------------------
+@app.command("browse_skills", no_args_is_help=True)
+def BrowseSkills(
+    agent: Annotated[
+        AgentType,
+        typer.Argument(
+            help="Agent whose skills directory should be opened.",
+        ),
+    ],
+    output_dir: Annotated[
+        Path | None,
+        typer.Argument(
+            file_okay=False,
+            resolve_path=True,
+            help="Browse the project-level skills directory under this directory. When omitted, the global (user-level) skills directory is browsed.",
+        ),
+    ] = None,
+    verbose: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--verbose", help="Write verbose information to the terminal."),
+    ] = False,
+    debug: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--debug", help="Write debug information to the terminal."),
+    ] = False,
+) -> None:
+    """Open an AI agent's skills directory in a file browser."""
+
+    with DoneManager.CreateCommandLine(
+        flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        agent_instance = _AGENTS[agent]()
+
+        with dm.Nested(f"Browsing skills '{agent.name}'..."):
+            if output_dir is None:
+                BrowseGlobalSkills(agent_instance)
+            else:
+                BrowseLocalSkills(agent_instance, output_dir)
+
+
+# ----------------------------------------------------------------------
 @app.command("version")
 def Version() -> None:
-    """Print the package version."""
+    """Print the version."""
 
     typer.echo(__version__)
 
