@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 import robotter.__main__ as main_module
 
+from robotter import __version__
 from robotter.__main__ import AgentType, app
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.GitHubCopilot import GitHubCopilot
@@ -265,6 +266,16 @@ class TestBrowseDispatch:
 
         assert result.exit_code != 0
         browse_spy.assert_not_called()
+
+
+# ----------------------------------------------------------------------
+class TestVersion:
+    # ----------------------------------------------------------------------
+    def test_prints_the_package_version(self):
+        result = runner.invoke(app, ["version"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == f"{__version__}\n"
 
 
 # ----------------------------------------------------------------------

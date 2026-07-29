@@ -8,6 +8,7 @@ import typer
 from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManagerFlags
 from typer.core import TyperGroup
 
+from robotter import __version__
 from robotter.Lib import BrowseGlobal, EditGlobal, EditLocal, RenderGlobal, RenderLocal
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
@@ -168,6 +169,14 @@ def Browse(
 
         with dm.Nested(f"Browsing '{agent.name}'..."):
             BrowseGlobal(agent_instance)
+
+
+# ----------------------------------------------------------------------
+@app.command("version")
+def Version() -> None:
+    """Print the package version."""
+
+    typer.echo(__version__)
 
 
 # ----------------------------------------------------------------------
