@@ -20,8 +20,13 @@
 ## Contents
 - [Overview](#overview)
   - [Rendering a template](#how-to-use-robotter)
+    - [Example Configuration](#example-configuration)
+  - [Rendering a skill](#rendering-a-skill)
+    - [Example Skill](#example-skill)
   - [Editing an agent's configuration](#editing-an-agents-configuration)
+  - [Editing a skill](#editing-a-skill)
   - [Browsing an agent's global configuration](#browsing-an-agents-global-configuration)
+  - [Browsing an agent's skills](#browsing-an-agents-skills)
 - [Installation](#installation)
 - [Development](#development)
 - [Additional Information](#additional-information)
@@ -39,7 +44,16 @@ Different agents read their configuration from different locations under differe
 | OpenAI Codex | `openai-codex` | `AGENTS.md` | `~/.codex/AGENTS.md` |
 | OpenCode | `opencode` | `AGENTS.md` | `~/.config/opencode/AGENTS.md` |
 
-Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved in the rendered output) and may compose other templates via the `include_configuration("<relative path>")` function, letting you maintain shared content once and assemble agent-specific files from it.
+Some agents also support "skills" — reusable instruction sets stored under a per-skill location, keyed by a skill name. `robotter` writes rendered skills to the appropriate location(s) for those agents:
+
+| Agent | Value | Project Skill | Global Skill |
+| --- | --- | --- | --- |
+| Claude Code | `claude-code` | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` |
+| GitHub Copilot | `github-copilot` | _(not supported)_ | _(not supported)_ |
+| OpenAI Codex | `openai-codex` | _(not supported)_ | _(not supported)_ |
+| OpenCode | `opencode` | _(not supported)_ | _(not supported)_ |
+
+Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved in the rendered output) and may compose other templates via the `include_configuration("<relative path>")` function, letting you maintain shared content once and assemble agent-specific files from it (see [Example Configuration](#example-configuration) and [Example Skill](#example-skill) below).
 
 ### How to use `robotter`
 Render a template to an agent's configuration location(s):
@@ -70,60 +84,7 @@ Render `instructions.md` to the project-level OpenCode configuration under `./my
 uvx robotter render instructions.md opencode ./my-project
 ```
 
-### Editing an agent's configuration
-Open an agent's rendered configuration file in an editor:
-
-```shell
-uvx robotter edit <agent> [<dir>] [--verbose] [--debug]
-```
-
-| Argument / Option | Description |
-| --- | --- |
-| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
-| `<dir>` | Edit project-level configuration under this directory. When omitted, global (user-level) configuration is edited. |
-| `--verbose` | Write verbose information to the terminal. |
-| `--debug` | Write debug information to the terminal. |
-
-The configuration file must already exist (for example, produced by a prior `render`); `edit` fails if it does not. The editor is selected from the `VISUAL` or `EDITOR` environment variable when set, otherwise the operating system's default handler for the file is used.
-
-**Examples**
-
-Edit the current user's global Claude Code configuration:
-
-```shell
-uvx robotter edit claude-code
-```
-
-Edit the project-level OpenCode configuration under `./my-project`:
-
-```shell
-uvx robotter edit opencode ./my-project
-```
-
-### Browsing an agent's global configuration
-Open an agent's global (user-level) configuration directory in a file browser:
-
-```shell
-uvx robotter browse <agent> [--verbose] [--debug]
-```
-
-| Argument / Option | Description |
-| --- | --- |
-| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
-| `--verbose` | Write verbose information to the terminal. |
-| `--debug` | Write debug information to the terminal. |
-
-The directory is opened using the operating system's default file browser. The directory must already exist (for example, produced by a prior `render`); `browse` fails if it does not.
-
-**Example**
-
-Browse the current user's global Claude Code configuration directory:
-
-```shell
-uvx robotter browse claude-code
-```
-
-### Example Configuration
+#### Example Configuration
 A configuration file is a [Jinja2](https://jinja.palletsprojects.com/) template with optional [YAML](https://yaml.org/) frontmatter. Use the `include_configuration("<relative path>")` function to compose shared content from another configuration file, letting you maintain that content once and reuse it across multiple templates.
 
 The following `instructions.md` template includes a shared `shared/coding-standards.md` file:
@@ -166,6 +127,184 @@ This project composes GenAI dotfiles from a single source template.
 - Prefer clarity over cleverness.
 - Write tests for all new functionality.
 - Document public interfaces.
+```
+
+### Rendering a skill
+Some agents support "skills" — reusable instruction sets stored under a per-skill location. Render a skill template to an agent's skill location(s):
+
+```shell
+uvx robotter render_skill <template> <agent> [<dir>] [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<template>` | Path to the skill template file to render. |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `<dir>` | Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The skill name is taken from the template's frontmatter `name` attribute (required); the rendered output is written to the per-skill location derived from that name (see the table in the [Overview](#overview) above). Not every agent supports skills; `render_skill` fails for an agent that does not.
+
+#### Example Skill
+A skill template is a [Jinja2](https://jinja.palletsprojects.com/) template with [YAML](https://yaml.org/) frontmatter that must include a `name` attribute; that name determines the per-skill location the rendered output is written to. Like a configuration template, a skill template may compose shared content via `include_configuration("<relative path>")`.
+
+The following `review_skill.md` skill template declares its name in frontmatter and reuses the shared `shared/coding-standards.md` file from the [Example Configuration](#example-configuration) above. Note that the template filename (`review_skill.md`) and the `name` attribute (`review`) are independent — the rendered output location is derived from `name`, not the filename:
+
+```jinja
+---
+name: review
+description: Review changes before committing
+---
+# Review
+
+Review the pending changes before committing, confirming they satisfy the project's coding standards:
+
+{{ include_configuration("shared/coding-standards.md") }}
+```
+
+Rendering the template preserves the frontmatter and replaces the `include_configuration` call with the rendered content of the included file, producing the following `SKILL.md`:
+
+```markdown
+---
+name: review
+description: Review changes before committing
+---
+# Review
+
+Review the pending changes before committing, confirming they satisfy the project's coding standards:
+
+- Prefer clarity over cleverness.
+- Write tests for all new functionality.
+- Document public interfaces.
+```
+
+**Examples**
+
+Render `review_skill.md` to the current user's global Claude Code skill location (`~/.claude/skills/review/SKILL.md`):
+
+```shell
+uvx robotter render_skill review_skill.md claude-code
+```
+
+Render `review_skill.md` to the project-level Claude Code skill under `./my-project` (`./my-project/.claude/skills/review/SKILL.md`):
+
+```shell
+uvx robotter render_skill review_skill.md claude-code ./my-project
+```
+
+### Editing an agent's configuration
+Open an agent's rendered configuration file in an editor:
+
+```shell
+uvx robotter edit <agent> [<dir>] [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `<dir>` | Edit project-level configuration under this directory. When omitted, global (user-level) configuration is edited. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The configuration file must already exist (for example, produced by a prior `render`); `edit` fails if it does not. The editor is selected from the `VISUAL` or `EDITOR` environment variable when set, otherwise the operating system's default handler for the file is used.
+
+**Examples**
+
+Edit the current user's global Claude Code configuration:
+
+```shell
+uvx robotter edit claude-code
+```
+
+Edit the project-level OpenCode configuration under `./my-project`:
+
+```shell
+uvx robotter edit opencode ./my-project
+```
+
+### Editing a skill
+Open an agent's rendered skill file in an editor:
+
+```shell
+uvx robotter edit_skill <name> <agent> [<dir>] [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<name>` | Name of the skill to edit (the same name declared in the skill template's frontmatter). |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `<dir>` | Edit the project-level skill under this directory. When omitted, the global (user-level) skill is edited. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The skill file must already exist (for example, produced by a prior `render_skill`); `edit_skill` fails if it does not. The editor is selected from the `VISUAL` or `EDITOR` environment variable when set, otherwise the operating system's default handler for the file is used. Not every agent supports skills; `edit_skill` fails for an agent that does not.
+
+**Examples**
+
+Edit the current user's global Claude Code `review` skill (`~/.claude/skills/review/SKILL.md`):
+
+```shell
+uvx robotter edit_skill review claude-code
+```
+
+Edit the project-level Claude Code `review` skill under `./my-project` (`./my-project/.claude/skills/review/SKILL.md`):
+
+```shell
+uvx robotter edit_skill review claude-code ./my-project
+```
+
+### Browsing an agent's global configuration
+Open an agent's global (user-level) configuration directory in a file browser:
+
+```shell
+uvx robotter browse <agent> [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The directory is opened using the operating system's default file browser. The directory must already exist (for example, produced by a prior `render`); `browse` fails if it does not.
+
+**Example**
+
+Browse the current user's global Claude Code configuration directory:
+
+```shell
+uvx robotter browse claude-code
+```
+
+### Browsing an agent's skills
+Open an agent's skills directory in a file browser:
+
+```shell
+uvx robotter browse_skills <agent> [<dir>] [--verbose] [--debug]
+```
+
+| Argument / Option | Description |
+| --- | --- |
+| `<agent>` | Target agent: `claude-code`, `github-copilot`, `openai-codex`, or `opencode`. |
+| `<dir>` | Browse the project-level skills directory under this directory. When omitted, the global (user-level) skills directory is browsed. |
+| `--verbose` | Write verbose information to the terminal. |
+| `--debug` | Write debug information to the terminal. |
+
+The directory is opened using the operating system's default file browser. The directory must already exist (for example, produced by a prior `render_skill`); `browse_skills` fails if it does not. Not every agent supports skills; `browse_skills` fails for an agent that does not.
+
+**Examples**
+
+Browse the current user's global Claude Code skills directory (`~/.claude/skills`):
+
+```shell
+uvx robotter browse_skills claude-code
+```
+
+Browse the project-level Claude Code skills directory under `./my-project` (`./my-project/.claude/skills`):
+
+```shell
+uvx robotter browse_skills claude-code ./my-project
 ```
 
 <!-- Content below this delimiter will be copied to the generated README.md file. DO NOT REMOVE THIS COMMENT, as it will cause regeneration to fail. -->

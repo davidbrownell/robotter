@@ -10,7 +10,19 @@ import pytest
 import robotter.Lib as lib_module
 
 from robotter.agents.Agent import Agent, OperatingSystem
-from robotter.Lib import BrowseGlobal, EditGlobal, EditLocal, RenderGlobal, RenderLocal
+from robotter.Lib import (
+    BrowseGlobal,
+    BrowseGlobalSkills,
+    BrowseLocalSkills,
+    EditGlobal,
+    EditGlobalSkill,
+    EditLocal,
+    EditLocalSkill,
+    RenderGlobal,
+    RenderGlobalSkill,
+    RenderLocal,
+    RenderLocalSkill,
+)
 
 
 # ----------------------------------------------------------------------
@@ -18,19 +30,54 @@ def _MakeAgent(
     *,
     project_paths: tuple[str, ...] = (),
     global_paths: tuple[str, ...] = (),
+    global_skill_template: str | None = None,
+    project_skill_template: str | None = None,
+    global_skills_root: str | None = None,
+    project_skills_root: str | None = None,
 ) -> Agent:
-    """Create an `Agent` whose configuration paths are exactly the ones provided."""
+    """Create an `Agent` whose configuration paths are exactly the ones provided.
+
+    The skill templates, when provided, are ``str.format``-style patterns containing a
+    ``{skill_name}`` placeholder; a value of `None` models an agent that does not support
+    skills. The skills-root values are plain paths (no placeholder); a value of `None`
+    models an agent that does not support skills.
+    """
 
     class _StubAgent(Agent):
         name = "Stub"
 
         @staticmethod
-        def _EnumGlobalConfigurationPaths(operating_system: OperatingSystem) -> Iterator[str]:  # noqa: ARG004
-            yield from global_paths
+        def _EnumGlobalConfigurationPaths(operating_system: OperatingSystem) -> Iterator[Path]:  # noqa: ARG004
+            for path in global_paths:
+                yield Path(path)
 
         @staticmethod
         def _EnumProjectConfigurationNames() -> Iterator[str]:
             yield from project_paths
+
+        @staticmethod
+        def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
+            if global_skills_root is None:
+                return None
+            return Path(global_skills_root)
+
+        @staticmethod
+        def _GetProjectSkillsRoot() -> Path | None:
+            if project_skills_root is None:
+                return None
+            return Path(project_skills_root)
+
+        @staticmethod
+        def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
+            if global_skill_template is None:
+                return None
+            return Path(global_skill_template.format(skill_name=skill_name))
+
+        @staticmethod
+        def _GetProjectSkillPath(skill_name: str) -> Path | None:
+            if project_skill_template is None:
+                return None
+            return Path(project_skill_template.format(skill_name=skill_name))
 
     return _StubAgent()
 
@@ -185,6 +232,149 @@ class TestRenderGlobal:
 
         assert target_a.read_text(encoding="utf-8") == "shared"
         assert target_b.read_text(encoding="utf-8") == "shared"
+
+
+# ----------------------------------------------------------------------
+class TestRenderLocalSkill:
+    # ----------------------------------------------------------------------
+    def test_writes_to_skill_path_named_by_frontmatter(self, template, tmp_path: Path):
+        agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+        output_dir = tmp_path / "out"
+
+        RenderLocalSkill(
+            template(
+                dedent("""\
+                ---
+                name: my-skill
+                ---
+                Body: {{ 2 + 2 }}""")
+            ),
+            agent,
+            output_dir,
+        )
+
+        assert (output_dir / "skills" / "my-skill" / "SKILL.md").read_text(encoding="utf-8") == dedent("""\
+            ---
+            name: my-skill
+            ---
+            Body: 4""")
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_raises(self, template, tmp_path: Path):
+        agent = _MakeAgent(project_skill_template=None)
+        output_dir = tmp_path / "out"
+
+        with pytest.raises(ValueError, match="does not support skills"):
+            RenderLocalSkill(
+                template(
+                    dedent("""\
+                    ---
+                    name: my-skill
+                    ---
+                    Body""")
+                ),
+                agent,
+                output_dir,
+            )
+
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_missing_frontmatter_raises(self, template, tmp_path: Path):
+        agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+        output_dir = tmp_path / "out"
+
+        with pytest.raises(ValueError, match="does not have frontmatter"):
+            RenderLocalSkill(template("Body without frontmatter"), agent, output_dir)
+
+    # ----------------------------------------------------------------------
+    def test_missing_name_attribute_raises(self, template, tmp_path: Path):
+        agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+        output_dir = tmp_path / "out"
+
+        with pytest.raises(ValueError, match="does not have a 'name' frontmatter attribute"):
+            RenderLocalSkill(
+                template(
+                    dedent("""\
+                    ---
+                    description: no name here
+                    ---
+                    Body""")
+                ),
+                agent,
+                output_dir,
+            )
+
+
+# ----------------------------------------------------------------------
+class TestRenderGlobalSkill:
+    # ----------------------------------------------------------------------
+    def test_writes_to_skill_path_named_by_frontmatter(self, template, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        RenderGlobalSkill(
+            template(
+                dedent("""\
+                ---
+                name: my-skill
+                ---
+                Body: {{ 1 + 1 }}""")
+            ),
+            agent,
+        )
+
+        assert (tmp_path / "skills" / "my-skill" / "SKILL.md").read_text(encoding="utf-8") == dedent("""\
+            ---
+            name: my-skill
+            ---
+            Body: 2""")
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_raises(self, template, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeAgent(global_skill_template=None)
+
+        with pytest.raises(ValueError, match="does not support skills"):
+            RenderGlobalSkill(
+                template(
+                    dedent("""\
+                    ---
+                    name: my-skill
+                    ---
+                    Body""")
+                ),
+                agent,
+            )
+
+        assert list(tmp_path.iterdir()) == [tmp_path / "template.md"]
+
+    # ----------------------------------------------------------------------
+    def test_missing_frontmatter_raises(self, template):
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        with pytest.raises(ValueError, match="does not have frontmatter"):
+            RenderGlobalSkill(template("Body without frontmatter"), agent)
+
+    # ----------------------------------------------------------------------
+    def test_missing_name_attribute_raises(self, template):
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        with pytest.raises(ValueError, match="does not have a 'name' frontmatter attribute"):
+            RenderGlobalSkill(
+                template(
+                    dedent("""\
+                    ---
+                    description: no name here
+                    ---
+                    Body""")
+                ),
+                agent,
+            )
 
 
 # ----------------------------------------------------------------------
@@ -404,6 +594,111 @@ class TestEditGlobal:
 
 
 # ----------------------------------------------------------------------
+class TestEditLocalSkill:
+    # ----------------------------------------------------------------------
+    def test_launches_editor_on_project_skill(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, _startfile_spy = launcher
+        agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+        output_dir = tmp_path / "out"
+        skill_path = output_dir / "skills" / "my-skill" / "SKILL.md"
+        skill_path.parent.mkdir(parents=True)
+        skill_path.write_text("content", encoding="utf-8")
+
+        EditLocalSkill("my-skill", agent, output_dir)
+
+        run_spy.assert_called_once_with(["my-editor", str(skill_path)], check=True)
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_raises(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(project_skill_template=None)
+
+        with pytest.raises(ValueError, match="does not support skills"):
+            EditLocalSkill("my-skill", agent, tmp_path / "out")
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_file_raises(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+
+        with pytest.raises(FileNotFoundError, match="skill file"):
+            EditLocalSkill("my-skill", agent, tmp_path / "out")
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+
+# ----------------------------------------------------------------------
+class TestEditGlobalSkill:
+    # ----------------------------------------------------------------------
+    def test_launches_editor_on_global_skill(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+        skill_path = tmp_path / "skills" / "my-skill" / "SKILL.md"
+        skill_path.parent.mkdir(parents=True)
+        skill_path.write_text("content", encoding="utf-8")
+
+        EditGlobalSkill("my-skill", agent)
+
+        run_spy.assert_called_once_with(["my-editor", str(skill_path)], check=True)
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_raises(
+        self,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(global_skill_template=None)
+
+        with pytest.raises(ValueError, match="does not support skills"):
+            EditGlobalSkill("my-skill", agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_file_raises(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        with pytest.raises(FileNotFoundError, match="skill file"):
+            EditGlobalSkill("my-skill", agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+
+# ----------------------------------------------------------------------
 class TestBrowseGlobal:
     # ----------------------------------------------------------------------
     def test_windows_opens_configuration_directory(
@@ -484,6 +779,161 @@ class TestBrowseGlobal:
 
         with pytest.raises(ValueError, match="does not define any configuration locations"):
             BrowseGlobal(agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+
+# ----------------------------------------------------------------------
+class TestBrowseGlobalSkills:
+    # ----------------------------------------------------------------------
+    def test_windows_opens_skills_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "win32")
+        skills_root = tmp_path / "skills"
+        skills_root.mkdir()
+        agent = _MakeAgent(global_skills_root=str(skills_root))
+
+        BrowseGlobalSkills(agent)
+
+        startfile_spy.assert_called_once_with(skills_root)
+        run_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_macos_opens_skills_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "darwin")
+        skills_root = tmp_path / "skills"
+        skills_root.mkdir()
+        agent = _MakeAgent(global_skills_root=str(skills_root))
+
+        BrowseGlobalSkills(agent)
+
+        run_spy.assert_called_once_with(["open", str(skills_root)], check=True)
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_linux_opens_skills_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "linux")
+        skills_root = tmp_path / "skills"
+        skills_root.mkdir()
+        agent = _MakeAgent(global_skills_root=str(skills_root))
+
+        BrowseGlobalSkills(agent)
+
+        run_spy.assert_called_once_with(["xdg-open", str(skills_root)], check=True)
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_raises(
+        self,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(global_skills_root=None)
+
+        with pytest.raises(ValueError, match="does not support skills"):
+            BrowseGlobalSkills(agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_directory_raises(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(global_skills_root=str(tmp_path / "skills"))
+
+        with pytest.raises(FileNotFoundError, match="skills directory"):
+            BrowseGlobalSkills(agent)
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+
+# ----------------------------------------------------------------------
+class TestBrowseLocalSkills:
+    # ----------------------------------------------------------------------
+    def test_windows_opens_skills_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "win32")
+        agent = _MakeAgent(project_skills_root="skills")
+        output_dir = tmp_path / "out"
+        (output_dir / "skills").mkdir(parents=True)
+
+        BrowseLocalSkills(agent, output_dir)
+
+        startfile_spy.assert_called_once_with(output_dir / "skills")
+        run_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_linux_opens_skills_directory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        monkeypatch.setattr(lib_module.sys, "platform", "linux")
+        agent = _MakeAgent(project_skills_root="skills")
+        output_dir = tmp_path / "out"
+        (output_dir / "skills").mkdir(parents=True)
+
+        BrowseLocalSkills(agent, output_dir)
+
+        run_spy.assert_called_once_with(["xdg-open", str(output_dir / "skills")], check=True)
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_raises(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(project_skills_root=None)
+
+        with pytest.raises(ValueError, match="does not support skills"):
+            BrowseLocalSkills(agent, tmp_path / "out")
+
+        run_spy.assert_not_called()
+        startfile_spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_missing_directory_raises(
+        self,
+        tmp_path: Path,
+        launcher: tuple[MagicMock, MagicMock],
+    ):
+        run_spy, startfile_spy = launcher
+        agent = _MakeAgent(project_skills_root="skills")
+
+        with pytest.raises(FileNotFoundError, match="skills directory"):
+            BrowseLocalSkills(agent, tmp_path / "out")
 
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()

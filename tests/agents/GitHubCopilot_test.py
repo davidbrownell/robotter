@@ -16,3 +16,15 @@ class TestGitHubCopilot(AgentTestBase):
         OperatingSystem.Linux: ["~/.config/Code/User/prompts"],
     }
     project_paths = [".github/copilot-instructions.md"]
+    global_skill_templates = {
+        OperatingSystem.Windows: None,
+        OperatingSystem.MacOS: None,
+        OperatingSystem.Linux: None,
+    }
+    project_skill_path = None
+    global_skills_root_templates = {
+        OperatingSystem.Windows: None,
+        OperatingSystem.MacOS: None,
+        OperatingSystem.Linux: None,
+    }
+    project_skills_root = None

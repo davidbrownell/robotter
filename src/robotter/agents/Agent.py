@@ -80,7 +80,7 @@ class Agent(ABC):
         operating_system = operating_system or cls.GetOperatingSystem()
 
         return [
-            Path(os.path.expandvars(path)).expanduser()
+            Path(os.path.expandvars(str(path))).expanduser()
             for path in cls._EnumGlobalConfigurationPaths(operating_system)
         ]
 
@@ -92,6 +92,62 @@ class Agent(ABC):
         return [project_root / path for path in cls._EnumProjectConfigurationNames()]
 
     # ----------------------------------------------------------------------
+    @classmethod
+    def GetGlobalSkillsRoot(cls, operating_system: OperatingSystem | None = None) -> Path | None:
+        """Return the directory containing the global skills as an absolute path, or `None` if unsupported."""
+
+        operating_system = operating_system or cls.GetOperatingSystem()
+
+        root = cls._GetGlobalSkillsRoot(operating_system)
+        if root is None:
+            return None
+
+        return Path(os.path.expandvars(str(root))).expanduser()
+
+    # ----------------------------------------------------------------------
+    @classmethod
+    def GetProjectSkillsRoot(cls, project_root: Path) -> Path | None:
+        """Return the directory containing the project skills under `project_root`, or `None` if unsupported."""
+
+        relative = cls._GetProjectSkillsRoot()
+        if relative is None:
+            return None
+
+        return project_root / relative
+
+    # ----------------------------------------------------------------------
+    @classmethod
+    def GetGlobalSkillPath(
+        cls,
+        skill_name: str,
+        operating_system: OperatingSystem | None = None,
+    ) -> Path | None:
+        """Return the global skill file for `skill_name` as an absolute path, or `None` if skills are unsupported."""
+
+        cls._ValidateSkillName(skill_name)
+
+        operating_system = operating_system or cls.GetOperatingSystem()
+
+        path = cls._GetGlobalSkillPath(skill_name, operating_system)
+        if path is None:
+            return None
+
+        return Path(os.path.expandvars(str(path))).expanduser()
+
+    # ----------------------------------------------------------------------
+    @classmethod
+    def GetProjectSkillPath(cls, skill_name: str, project_root: Path) -> Path | None:
+        """Return the project skill file for `skill_name` under `project_root`, or `None` if unsupported."""
+
+        cls._ValidateSkillName(skill_name)
+
+        relative = cls._GetProjectSkillPath(skill_name)
+        if relative is None:
+            return None
+
+        return project_root / relative
+
+    # ----------------------------------------------------------------------
     # |
     # |  Abstract Methods (implemented by derived classes)
     # |
@@ -100,11 +156,57 @@ class Agent(ABC):
     @abstractmethod
     def _EnumGlobalConfigurationPaths(
         operating_system: OperatingSystem,
-    ) -> Iterator[str]:
-        """Enumerate the raw, unexpanded global configuration path templates for `operating_system`."""
+    ) -> Iterator[Path]:
+        """Enumerate the raw, unexpanded global configuration paths for `operating_system`."""
 
     # ----------------------------------------------------------------------
     @staticmethod
     @abstractmethod
     def _EnumProjectConfigurationNames() -> Iterator[str]:
         """Enumerate the project configuration path(s), each relative to a project's root directory."""
+
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @abstractmethod
+    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
+        """Return the unexpanded global skills root directory, or `None` if skills are unsupported."""
+
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @abstractmethod
+    def _GetProjectSkillsRoot() -> Path | None:
+        """Return the project skills root directory (relative to a project's root), or `None` if unsupported."""
+
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @abstractmethod
+    def _GetGlobalSkillPath(
+        skill_name: str,
+        operating_system: OperatingSystem,
+    ) -> Path | None:
+        """Return the unexpanded global skill path for `skill_name`, or `None` if unsupported."""
+
+    # ----------------------------------------------------------------------
+    @staticmethod
+    @abstractmethod
+    def _GetProjectSkillPath(skill_name: str) -> Path | None:
+        """Return the project skill path for `skill_name` (relative to a project's root), or `None` if unsupported."""
+
+    # ----------------------------------------------------------------------
+    # |
+    # |  Private Methods
+    # |
+    # ----------------------------------------------------------------------
+    @staticmethod
+    def _ValidateSkillName(skill_name: str) -> None:
+        """Raise an exception if `skill_name` is invalid."""
+
+        if (
+            not skill_name
+            or os.path.isabs(skill_name)  # noqa: PTH117
+            or skill_name in {".", ".."}
+            or "/" in skill_name
+            or "\\" in skill_name
+        ):
+            msg = f"Invalid skill name '{skill_name}'."
+            raise ValueError(msg)
