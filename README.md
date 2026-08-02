@@ -53,9 +53,9 @@ Some agents also support "skills" — reusable instruction sets stored under a p
 | Agent | Value | Project Skill | Global Skill |
 | --- | --- | --- | --- |
 | Claude Code | `claude-code` | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` |
-| Cline | `cline` | *(not supported)* | *(not supported)* |
-| Cursor | `cursor` | *(not supported)* | *(not supported)* |
-| Gemini CLI | `gemini-cli` | *(not supported)* | *(not supported)* |
+| Cline | `cline` | `.cline/skills/<name>/SKILL.md` | `~/.cline/skills/<name>/SKILL.md` |
+| Cursor | `cursor` | `.cursor/skills/<name>/SKILL.md` | `~/.cursor/skills/<name>/SKILL.md` |
+| Gemini CLI | `gemini-cli` | `.gemini/skills/<name>/SKILL.md` | `~/.gemini/skills/<name>/SKILL.md` |
 | GitHub Copilot | `github-copilot` | `.github/skills/<name>/SKILL.md` | `~/.copilot/skills/<name>/SKILL.md` |
 | Grok | `grok` | `.grok/skills/<name>/SKILL.md` | `~/.grok/skills/<name>/SKILL.md` |
 | OpenAI Codex | `openai-codex` | `.agents/skills/<name>/SKILL.md` | `~/.agents/skills/<name>/SKILL.md` |

@@ -17,14 +17,14 @@ class TestCline(AgentTestBase):
     }
     project_path = ".clinerules/main.md"
     global_skill_templates = {
-        OperatingSystem.Windows: None,
-        OperatingSystem.MacOS: None,
-        OperatingSystem.Linux: None,
+        OperatingSystem.Windows: r"%USERPROFILE%\.cline\skills\my-skill\SKILL.md",
+        OperatingSystem.MacOS: "~/.cline/skills/my-skill/SKILL.md",
+        OperatingSystem.Linux: "~/.cline/skills/my-skill/SKILL.md",
     }
-    project_skill_path = None
+    project_skill_path = ".cline/skills/my-skill/SKILL.md"
     global_skills_root_templates = {
-        OperatingSystem.Windows: None,
-        OperatingSystem.MacOS: None,
-        OperatingSystem.Linux: None,
+        OperatingSystem.Windows: r"%USERPROFILE%\.cline\skills",
+        OperatingSystem.MacOS: "~/.cline/skills",
+        OperatingSystem.Linux: "~/.cline/skills",
     }
-    project_skills_root = None
+    project_skills_root = ".cline/skills"

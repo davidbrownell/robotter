@@ -14,8 +14,10 @@ class GeminiCLI(Agent):
     `GEMINI.md` file at the project root and global (user-level) context from
     `~/.gemini/GEMINI.md` (`%USERPROFILE%\\.gemini\\GEMINI.md` on Windows).
 
-    Gemini CLI does not implement the cross-agent Agent Skills standard, so skills are
-    unsupported (every skill method returns `None`).
+    Gemini CLI implements the cross-agent Agent Skills standard: project skills live under
+    `<project>/.gemini/skills/` and global (user-level) skills under `~/.gemini/skills/`
+    (`%USERPROFILE%\\.gemini\\skills` on Windows), with each skill defined by a `SKILL.md`
+    file in its own directory.
     """
 
     name: ClassVar[str] = "Gemini CLI"
@@ -39,22 +41,33 @@ class GeminiCLI(Agent):
     @staticmethod
     @override
     def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
-        return None
+        if operating_system == OperatingSystem.Windows:
+            return Path("%USERPROFILE%") / ".gemini" / "skills"
+
+        return Path("~") / ".gemini" / "skills"
 
     # ----------------------------------------------------------------------
     @staticmethod
     @override
     def _GetProjectSkillsRoot() -> Path | None:
-        return None
+        return Path(".gemini") / "skills"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:
-        return None
+    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
+        root = cls._GetGlobalSkillsRoot(operating_system)
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:
-        return None
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
+        root = cls._GetProjectSkillsRoot()
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"

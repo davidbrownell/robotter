@@ -15,8 +15,9 @@ class Cursor(Agent):
     (user-level) rules from `~/.cursor/rules/`. This agent targets a single `main.mdc`
     file within those directories.
 
-    Cursor does not implement the cross-agent Agent Skills standard, so skills are
-    unsupported (every skill method returns `None`).
+    Cursor implements the cross-agent Agent Skills standard (Cursor 2.4+): project skills
+    live under `<project>/.cursor/skills/` and global (user-level) skills under
+    `~/.cursor/skills/`, with each skill defined by a `SKILL.md` file in its own directory.
     """
 
     name: ClassVar[str] = "Cursor"
@@ -40,22 +41,33 @@ class Cursor(Agent):
     @staticmethod
     @override
     def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
-        return None
+        if operating_system == OperatingSystem.Windows:
+            return Path("%USERPROFILE%") / ".cursor" / "skills"
+
+        return Path("~") / ".cursor" / "skills"
 
     # ----------------------------------------------------------------------
     @staticmethod
     @override
     def _GetProjectSkillsRoot() -> Path | None:
-        return None
+        return Path(".cursor") / "skills"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:
-        return None
+    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
+        root = cls._GetGlobalSkillsRoot(operating_system)
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:
-        return None
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
+        root = cls._GetProjectSkillsRoot()
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"

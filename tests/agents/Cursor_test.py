@@ -17,14 +17,14 @@ class TestCursor(AgentTestBase):
     }
     project_path = ".cursor/rules/main.mdc"
     global_skill_templates = {
-        OperatingSystem.Windows: None,
-        OperatingSystem.MacOS: None,
-        OperatingSystem.Linux: None,
+        OperatingSystem.Windows: r"%USERPROFILE%\.cursor\skills\my-skill\SKILL.md",
+        OperatingSystem.MacOS: "~/.cursor/skills/my-skill/SKILL.md",
+        OperatingSystem.Linux: "~/.cursor/skills/my-skill/SKILL.md",
     }
-    project_skill_path = None
+    project_skill_path = ".cursor/skills/my-skill/SKILL.md"
     global_skills_root_templates = {
-        OperatingSystem.Windows: None,
-        OperatingSystem.MacOS: None,
-        OperatingSystem.Linux: None,
+        OperatingSystem.Windows: r"%USERPROFILE%\.cursor\skills",
+        OperatingSystem.MacOS: "~/.cursor/skills",
+        OperatingSystem.Linux: "~/.cursor/skills",
     }
-    project_skills_root = None
+    project_skills_root = ".cursor/skills"

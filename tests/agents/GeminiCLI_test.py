@@ -17,14 +17,14 @@ class TestGeminiCLI(AgentTestBase):
     }
     project_path = "GEMINI.md"
     global_skill_templates = {
-        OperatingSystem.Windows: None,
-        OperatingSystem.MacOS: None,
-        OperatingSystem.Linux: None,
+        OperatingSystem.Windows: r"%USERPROFILE%\.gemini\skills\my-skill\SKILL.md",
+        OperatingSystem.MacOS: "~/.gemini/skills/my-skill/SKILL.md",
+        OperatingSystem.Linux: "~/.gemini/skills/my-skill/SKILL.md",
     }
-    project_skill_path = None
+    project_skill_path = ".gemini/skills/my-skill/SKILL.md"
     global_skills_root_templates = {
-        OperatingSystem.Windows: None,
-        OperatingSystem.MacOS: None,
-        OperatingSystem.Linux: None,
+        OperatingSystem.Windows: r"%USERPROFILE%\.gemini\skills",
+        OperatingSystem.MacOS: "~/.gemini/skills",
+        OperatingSystem.Linux: "~/.gemini/skills",
     }
-    project_skills_root = None
+    project_skills_root = ".gemini/skills"

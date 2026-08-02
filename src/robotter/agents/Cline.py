@@ -16,8 +16,10 @@ class Cline(Agent):
     folder (`%USERPROFILE%\\Documents\\Cline\\Rules` on Windows, `~/Documents/Cline/Rules`
     otherwise). This agent targets a single `main.md` file within those directories.
 
-    Cline does not implement the cross-agent Agent Skills standard, so skills are
-    unsupported (every skill method returns `None`).
+    Cline implements the cross-agent Agent Skills standard: project skills live under
+    `<project>/.cline/skills/` and global (user-level) skills under `~/.cline/skills/`
+    (`%USERPROFILE%\\.cline\\skills` on Windows), with each skill defined by a `SKILL.md`
+    file in its own directory.
     """
 
     name: ClassVar[str] = "Cline"
@@ -41,22 +43,33 @@ class Cline(Agent):
     @staticmethod
     @override
     def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
-        return None
+        if operating_system == OperatingSystem.Windows:
+            return Path("%USERPROFILE%") / ".cline" / "skills"
+
+        return Path("~") / ".cline" / "skills"
 
     # ----------------------------------------------------------------------
     @staticmethod
     @override
     def _GetProjectSkillsRoot() -> Path | None:
-        return None
+        return Path(".cline") / "skills"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:
-        return None
+    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
+        root = cls._GetGlobalSkillsRoot(operating_system)
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:
-        return None
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
+        root = cls._GetProjectSkillsRoot()
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
