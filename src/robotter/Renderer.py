@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 # ----------------------------------------------------------------------
 RenderedTemplate = NewType("RenderedTemplate", str)
-"""A string that has been rendered by Jinja2. This type is used to indicate that the content has been processed and is ready for use."""
+"""A string produced by rendering a template through Jinja2."""
 
 
 # ----------------------------------------------------------------------
@@ -33,13 +33,10 @@ def Parse(
 
     # ----------------------------------------------------------------------
 
-    # Register the include_configuration function in the environment
     env.globals["include_configuration"] = IncludeConfiguration  # ty: ignore[invalid-assignment]
 
-    # Read the content of the file
     raw_content = content.read_text(encoding="utf-8")
 
-    # Split the content into frontmatter and main content
     if raw_content.startswith("---"):
         min_valid_frontmatter_parts = 3
         parts = raw_content.split("---", 2)

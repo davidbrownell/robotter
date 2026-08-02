@@ -82,14 +82,15 @@ class AgentTestBase:
         "operating_system",
         [OperatingSystem.Windows, OperatingSystem.MacOS, OperatingSystem.Linux],
     )
-    def test_get_global_configuration_filename_raw(self, operating_system):
-        filename = self.agent_type._GetGlobalConfigurationFilename(operating_system)
+    def test_get_global_configuration_filename_per_operating_system(
+        self, operating_system, tmp_path, monkeypatch
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
 
-        assert filename == _TemplateToPath(self.global_template[operating_system])
+        path = self.agent_type().GetGlobalConfigurationFilename(operating_system)
 
-    # ----------------------------------------------------------------------
-    def test_get_project_configuration_name_raw(self):
-        assert self.agent_type._GetProjectConfigurationName() == self.project_path
+        assert path == _ExpandTemplate(self.global_template[operating_system])
 
     # ----------------------------------------------------------------------
     def test_get_global_configuration_filename(self, tmp_path, monkeypatch):

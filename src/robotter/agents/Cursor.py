@@ -9,17 +9,7 @@ from robotter.agents.AgentImpl import AgentImpl
 
 # ----------------------------------------------------------------------
 class Cursor(AgentImpl):
-    """The Cursor agent.
-
-    Cursor reads rules from a `.cursor/rules/` directory of `.mdc` files rather than a
-    single configuration file: project rules from `<project>/.cursor/rules/` and global
-    (user-level) rules from `~/.cursor/rules/`. This agent targets a single `main.mdc`
-    file within those directories.
-
-    Cursor implements the cross-agent Agent Skills standard (Cursor 2.4+): project skills
-    live under `<project>/.cursor/skills/` and global (user-level) skills under
-    `~/.cursor/skills/`, with each skill defined by a `SKILL.md` file in its own directory.
-    """
+    """The Cursor agent."""
 
     name: ClassVar[str] = "Cursor"
 
