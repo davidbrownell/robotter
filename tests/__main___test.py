@@ -12,6 +12,7 @@ import robotter.__main__ as main_module
 from robotter import __version__
 from robotter.__main__ import AgentType, app
 from robotter.agents.ClaudeCode import ClaudeCode
+from robotter.agents.Cursor import Cursor
 from robotter.agents.GitHubCopilot import GitHubCopilot
 from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
@@ -119,6 +120,7 @@ class TestDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -189,6 +191,7 @@ class TestRenderSkillDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -317,6 +320,7 @@ class TestEditDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -403,6 +407,7 @@ class TestEditSkillDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -506,6 +511,7 @@ class TestBrowseDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -552,6 +558,7 @@ class TestBrowseSkillsDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
