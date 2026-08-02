@@ -32,8 +32,8 @@ from robotter.Lib import (
 # ----------------------------------------------------------------------
 def _MakeAgent(
     *,
-    project_paths: tuple[str, ...] = (),
-    global_paths: tuple[str, ...] = (),
+    project_path: str = "",
+    global_path: str = "",
     global_skill_template: str | None = None,
     project_skill_template: str | None = None,
     global_skills_root: str | None = None,
@@ -51,13 +51,12 @@ def _MakeAgent(
         name = "Stub"
 
         @staticmethod
-        def _EnumGlobalConfigurationPaths(operating_system: OperatingSystem) -> Iterator[Path]:  # noqa: ARG004
-            for path in global_paths:
-                yield Path(path)
+        def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:  # noqa: ARG004
+            return Path(global_path)
 
         @staticmethod
-        def _EnumProjectConfigurationNames() -> Iterator[str]:
-            yield from project_paths
+        def _GetProjectConfigurationName() -> str:
+            return project_path
 
         @staticmethod
         def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
@@ -120,7 +119,7 @@ def dm() -> Iterator[DoneManager]:
 class TestRenderLocal:
     # ----------------------------------------------------------------------
     def test_writes_rendered_content(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
 
         RenderLocal(dm, template("Hello, world!"), agent, output_dir)
@@ -129,7 +128,7 @@ class TestRenderLocal:
 
     # ----------------------------------------------------------------------
     def test_renders_jinja2(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
 
         RenderLocal(dm, template("Value: {{ 1 + 2 }}"), agent, output_dir)
@@ -138,7 +137,7 @@ class TestRenderLocal:
 
     # ----------------------------------------------------------------------
     def test_preserves_frontmatter(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
 
         RenderLocal(
@@ -162,7 +161,7 @@ class TestRenderLocal:
 
     # ----------------------------------------------------------------------
     def test_creates_parent_directories(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=("nested/dir/CONFIG.md",))
+        agent = _MakeAgent(project_path="nested/dir/CONFIG.md")
         output_dir = tmp_path / "out"
 
         RenderLocal(dm, template("content"), agent, output_dir)
@@ -170,18 +169,8 @@ class TestRenderLocal:
         assert (output_dir / "nested" / "dir" / "CONFIG.md").read_text(encoding="utf-8") == "content"
 
     # ----------------------------------------------------------------------
-    def test_writes_to_every_project_path(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=("A.md", "sub/B.md"))
-        output_dir = tmp_path / "out"
-
-        RenderLocal(dm, template("shared"), agent, output_dir)
-
-        assert (output_dir / "A.md").read_text(encoding="utf-8") == "shared"
-        assert (output_dir / "sub" / "B.md").read_text(encoding="utf-8") == "shared"
-
-    # ----------------------------------------------------------------------
     def test_encodes_as_utf8(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
 
         RenderLocal(dm, template("café — naïve — 日本語"), agent, output_dir)
@@ -190,17 +179,8 @@ class TestRenderLocal:
         assert written.read_bytes() == "café — naïve — 日本語".encode()
 
     # ----------------------------------------------------------------------
-    def test_no_project_paths_writes_nothing(self, template, tmp_path: Path, dm: DoneManager):
-        agent = _MakeAgent(project_paths=())
-        output_dir = tmp_path / "out"
-
-        RenderLocal(dm, template("content"), agent, output_dir)
-
-        assert not output_dir.exists()
-
-    # ----------------------------------------------------------------------
-    def test_writes_each_written_file_to_the_done_manager(self, template, tmp_path: Path):
-        agent = _MakeAgent(project_paths=("A.md", "sub/B.md"))
+    def test_writes_the_written_file_to_the_done_manager(self, template, tmp_path: Path):
+        agent = _MakeAgent(project_path="sub/CONFIG.md")
         output_dir = tmp_path / "out"
 
         generator = GenerateDoneManagerAndContent()
@@ -212,8 +192,7 @@ class TestRenderLocal:
 
         assert content == dedent(f"""\
             Heading...
-              Writing '{output_dir / "A.md"}'...DONE! (0, <scrubbed duration>)
-              Writing '{output_dir / "sub" / "B.md"}'...DONE! (0, <scrubbed duration>)
+              Writing '{output_dir / "sub" / "CONFIG.md"}'...DONE! (0, <scrubbed duration>)
             DONE! (0, <scrubbed duration>)
             """)
 
@@ -223,7 +202,7 @@ class TestRenderGlobal:
     # ----------------------------------------------------------------------
     def test_writes_rendered_content(self, template, tmp_path: Path, dm: DoneManager):
         target = tmp_path / "global" / "CONFIG.md"
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         RenderGlobal(dm, template("Value: {{ 3 + 4 }}"), agent)
 
@@ -232,7 +211,7 @@ class TestRenderGlobal:
     # ----------------------------------------------------------------------
     def test_preserves_frontmatter(self, template, tmp_path: Path, dm: DoneManager):
         target = tmp_path / "CONFIG.md"
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         RenderGlobal(
             dm,
@@ -254,26 +233,15 @@ class TestRenderGlobal:
 
     # ----------------------------------------------------------------------
     def test_expands_environment_variables(self, template, tmp_path: Path, monkeypatch, dm: DoneManager):
-        # The global path templates are expanded, so an env-var reference resolves.
+        # The global path template is expanded, so an env-var reference resolves.
         for var in ("HOME", "USERPROFILE", "APPDATA"):
             monkeypatch.setenv(var, str(tmp_path))
 
-        agent = _MakeAgent(global_paths=("~/CONFIG.md",))
+        agent = _MakeAgent(global_path="~/CONFIG.md")
 
         RenderGlobal(dm, template("content"), agent)
 
         assert (tmp_path / "CONFIG.md").read_text(encoding="utf-8") == "content"
-
-    # ----------------------------------------------------------------------
-    def test_writes_to_every_global_path(self, template, tmp_path: Path, dm: DoneManager):
-        target_a = tmp_path / "a" / "CONFIG.md"
-        target_b = tmp_path / "b" / "CONFIG.md"
-        agent = _MakeAgent(global_paths=(str(target_a), str(target_b)))
-
-        RenderGlobal(dm, template("shared"), agent)
-
-        assert target_a.read_text(encoding="utf-8") == "shared"
-        assert target_b.read_text(encoding="utf-8") == "shared"
 
 
 # ----------------------------------------------------------------------
@@ -504,7 +472,7 @@ class TestEditLocal:
         dm: DoneManager,
     ):
         run_spy, _startfile_spy = launcher
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
         output_dir.mkdir()
         (output_dir / "CONFIG.md").write_text("content", encoding="utf-8")
@@ -514,31 +482,13 @@ class TestEditLocal:
         run_spy.assert_called_once_with(["my-editor", str(output_dir / "CONFIG.md")], check=True)
 
     # ----------------------------------------------------------------------
-    def test_launches_editor_on_first_path_only(
-        self,
-        tmp_path: Path,
-        launcher: tuple[MagicMock, MagicMock],
-        dm: DoneManager,
-    ):
-        run_spy, _startfile_spy = launcher
-        agent = _MakeAgent(project_paths=("A.md", "B.md"))
-        output_dir = tmp_path / "out"
-        output_dir.mkdir()
-        (output_dir / "A.md").write_text("a", encoding="utf-8")
-        (output_dir / "B.md").write_text("b", encoding="utf-8")
-
-        EditLocal(dm, agent, output_dir)
-
-        run_spy.assert_called_once_with(["my-editor", str(output_dir / "A.md")], check=True)
-
-    # ----------------------------------------------------------------------
     def test_missing_file_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
 
         content = _RunCapturingContent(lambda dm: EditLocal(dm, agent, output_dir))
@@ -556,7 +506,7 @@ class TestEditLocal:
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
-        agent = _MakeAgent(project_paths=("CONFIG.md",))
+        agent = _MakeAgent(project_path="CONFIG.md")
         output_dir = tmp_path / "out"
         (output_dir / "CONFIG.md").mkdir(parents=True)
 
@@ -565,21 +515,6 @@ class TestEditLocal:
         assert content == _ExpectedError(
             f"The configuration file '{output_dir / 'CONFIG.md'}' does not exist."
         )
-        run_spy.assert_not_called()
-        startfile_spy.assert_not_called()
-
-    # ----------------------------------------------------------------------
-    def test_no_project_paths_writes_error(
-        self,
-        tmp_path: Path,
-        launcher: tuple[MagicMock, MagicMock],
-    ):
-        run_spy, startfile_spy = launcher
-        agent = _MakeAgent(project_paths=())
-
-        content = _RunCapturingContent(lambda dm: EditLocal(dm, agent, tmp_path))
-
-        assert content == _ExpectedError("The agent does not define any configuration locations.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -596,7 +531,7 @@ class TestEditGlobal:
         run_spy, startfile_spy = launcher
         target = tmp_path / "CONFIG.md"
         target.write_text("content", encoding="utf-8")
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         EditGlobal(dm, agent)
 
@@ -615,7 +550,7 @@ class TestEditGlobal:
         monkeypatch.setenv("VISUAL", "visual-editor")
         target = tmp_path / "CONFIG.md"
         target.write_text("content", encoding="utf-8")
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         EditGlobal(dm, agent)
 
@@ -635,7 +570,7 @@ class TestEditGlobal:
         monkeypatch.setattr(lib_module.sys, "platform", "win32")
         target = tmp_path / "CONFIG.md"
         target.write_text("content", encoding="utf-8")
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         EditGlobal(dm, agent)
 
@@ -656,7 +591,7 @@ class TestEditGlobal:
         monkeypatch.setattr(lib_module.sys, "platform", "darwin")
         target = tmp_path / "CONFIG.md"
         target.write_text("content", encoding="utf-8")
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         EditGlobal(dm, agent)
 
@@ -677,7 +612,7 @@ class TestEditGlobal:
         monkeypatch.setattr(lib_module.sys, "platform", "linux")
         target = tmp_path / "CONFIG.md"
         target.write_text("content", encoding="utf-8")
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         EditGlobal(dm, agent)
 
@@ -692,7 +627,7 @@ class TestEditGlobal:
     ):
         run_spy, startfile_spy = launcher
         target = tmp_path / "CONFIG.md"
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         content = _RunCapturingContent(lambda dm: EditGlobal(dm, agent))
 
@@ -827,7 +762,7 @@ class TestBrowseGlobal:
         monkeypatch.setattr(lib_module.sys, "platform", "win32")
         target = tmp_path / "config" / "CONFIG.md"
         target.parent.mkdir()
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         BrowseGlobal(dm, agent)
 
@@ -846,7 +781,7 @@ class TestBrowseGlobal:
         monkeypatch.setattr(lib_module.sys, "platform", "darwin")
         target = tmp_path / "config" / "CONFIG.md"
         target.parent.mkdir()
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         BrowseGlobal(dm, agent)
 
@@ -865,7 +800,7 @@ class TestBrowseGlobal:
         monkeypatch.setattr(lib_module.sys, "platform", "linux")
         target = tmp_path / "config" / "CONFIG.md"
         target.parent.mkdir()
-        agent = _MakeAgent(global_paths=(str(target),))
+        agent = _MakeAgent(global_path=str(target))
 
         BrowseGlobal(dm, agent)
 
@@ -879,27 +814,13 @@ class TestBrowseGlobal:
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
-        agent = _MakeAgent(global_paths=(str(tmp_path / "config" / "CONFIG.md"),))
+        agent = _MakeAgent(global_path=str(tmp_path / "config" / "CONFIG.md"))
 
         content = _RunCapturingContent(lambda dm: BrowseGlobal(dm, agent))
 
         assert content == _ExpectedError(
             f"The configuration directory '{tmp_path / 'config'}' does not exist."
         )
-        run_spy.assert_not_called()
-        startfile_spy.assert_not_called()
-
-    # ----------------------------------------------------------------------
-    def test_no_global_paths_writes_error(
-        self,
-        launcher: tuple[MagicMock, MagicMock],
-    ):
-        run_spy, startfile_spy = launcher
-        agent = _MakeAgent(global_paths=())
-
-        content = _RunCapturingContent(lambda dm: BrowseGlobal(dm, agent))
-
-        assert content == _ExpectedError("The agent does not define any configuration locations.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 

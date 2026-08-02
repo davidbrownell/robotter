@@ -10,12 +10,12 @@ from .AgentTestBase import AgentTestBase
 class TestOpenAICodex(AgentTestBase):
     agent_type = OpenAICodex
     expected_name = "OpenAI Codex"
-    global_templates = {
-        OperatingSystem.Windows: [r"%USERPROFILE%\.codex\AGENTS.md"],
-        OperatingSystem.MacOS: ["~/.codex/AGENTS.md"],
-        OperatingSystem.Linux: ["~/.codex/AGENTS.md"],
+    global_template = {
+        OperatingSystem.Windows: r"%USERPROFILE%\.codex\AGENTS.md",
+        OperatingSystem.MacOS: "~/.codex/AGENTS.md",
+        OperatingSystem.Linux: "~/.codex/AGENTS.md",
     }
-    project_paths = ["AGENTS.md"]
+    project_path = "AGENTS.md"
     global_skill_templates = {
         OperatingSystem.Windows: None,
         OperatingSystem.MacOS: None,

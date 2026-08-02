@@ -1,12 +1,9 @@
 """Configuration-path locations for GitHub Copilot (as hosted within Visual Studio Code)."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from robotter.agents.Agent import Agent, OperatingSystem
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 
 # ----------------------------------------------------------------------
@@ -17,18 +14,19 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumGlobalConfigurationPaths(operating_system: OperatingSystem) -> Iterator[Path]:
+    def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
         if operating_system == OperatingSystem.Windows:
-            yield Path("%APPDATA%") / "Code" / "User" / "prompts"
-        elif operating_system == OperatingSystem.MacOS:
-            yield Path("~") / "Library" / "Application Support" / "Code" / "User" / "prompts"
-        else:
-            yield Path("~") / ".config" / "Code" / "User" / "prompts"
+            return Path("%APPDATA%") / "Code" / "User" / "prompts"
+
+        if operating_system == OperatingSystem.MacOS:
+            return Path("~") / "Library" / "Application Support" / "Code" / "User" / "prompts"
+
+        return Path("~") / ".config" / "Code" / "User" / "prompts"
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumProjectConfigurationNames() -> Iterator[str]:
-        yield ".github/copilot-instructions.md"
+    def _GetProjectConfigurationName() -> str:
+        return ".github/copilot-instructions.md"
 
     # ----------------------------------------------------------------------
     @staticmethod

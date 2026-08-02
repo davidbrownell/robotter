@@ -1,12 +1,9 @@
 """Configuration-path locations for Anthropic's Claude Code agent."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from robotter.agents.Agent import Agent, OperatingSystem
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 
 
 # ----------------------------------------------------------------------
@@ -17,16 +14,16 @@ class ClaudeCode(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumGlobalConfigurationPaths(operating_system: OperatingSystem) -> Iterator[Path]:
+    def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
         if operating_system == OperatingSystem.Windows:
-            yield Path("%USERPROFILE%") / ".claude" / "CLAUDE.md"
-        else:
-            yield Path("~") / ".claude" / "CLAUDE.md"
+            return Path("%USERPROFILE%") / ".claude" / "CLAUDE.md"
+
+        return Path("~") / ".claude" / "CLAUDE.md"
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumProjectConfigurationNames() -> Iterator[str]:
-        yield "CLAUDE.md"
+    def _GetProjectConfigurationName() -> str:
+        return "CLAUDE.md"
 
     # ----------------------------------------------------------------------
     @staticmethod

@@ -10,12 +10,12 @@ from .AgentTestBase import AgentTestBase
 class TestClaudeCode(AgentTestBase):
     agent_type = ClaudeCode
     expected_name = "Claude Code"
-    global_templates = {
-        OperatingSystem.Windows: [r"%USERPROFILE%\.claude\CLAUDE.md"],
-        OperatingSystem.MacOS: ["~/.claude/CLAUDE.md"],
-        OperatingSystem.Linux: ["~/.claude/CLAUDE.md"],
+    global_template = {
+        OperatingSystem.Windows: r"%USERPROFILE%\.claude\CLAUDE.md",
+        OperatingSystem.MacOS: "~/.claude/CLAUDE.md",
+        OperatingSystem.Linux: "~/.claude/CLAUDE.md",
     }
-    project_paths = ["CLAUDE.md"]
+    project_path = "CLAUDE.md"
     global_skill_templates = {
         OperatingSystem.Windows: r"%USERPROFILE%\.claude\skills\my-skill\SKILL.md",
         OperatingSystem.MacOS: "~/.claude/skills/my-skill/SKILL.md",

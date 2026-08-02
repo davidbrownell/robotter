@@ -22,16 +22,16 @@ if TYPE_CHECKING:
 
 # ----------------------------------------------------------------------
 def RenderGlobal(dm: DoneManager, template: Path, agent: Agent) -> None:
-    """Render `template` and write the result to each of `agent`'s global configuration paths."""
+    """Render `template` and write the result to `agent`'s global configuration file."""
 
-    _Render(dm, template, agent.GetGlobalConfigurationPaths())
+    _Render(dm, template, agent.GetGlobalConfigurationFilename())
 
 
 # ----------------------------------------------------------------------
 def RenderLocal(dm: DoneManager, template: Path, agent: Agent, output_dir: Path) -> None:
-    """Render `template` and write the result to each of `agent`'s project configuration paths under `output_dir`."""
+    """Render `template` and write the result to `agent`'s project configuration file under `output_dir`."""
 
-    _Render(dm, template, agent.GetProjectConfigurationPaths(output_dir))
+    _Render(dm, template, agent.GetProjectConfigurationFilename(output_dir))
 
 
 # ----------------------------------------------------------------------
@@ -72,14 +72,14 @@ def RenderLocalSkill(dm: DoneManager, template: Path, agent: Agent, output_dir: 
 def EditGlobal(dm: DoneManager, agent: Agent) -> None:
     """Launch an editor on `agent`'s global (user-level) configuration file."""
 
-    _EditFile(dm, agent.GetGlobalConfigurationPaths())
+    _EditFile(dm, agent.GetGlobalConfigurationFilename())
 
 
 # ----------------------------------------------------------------------
 def EditLocal(dm: DoneManager, agent: Agent, output_dir: Path) -> None:
     """Launch an editor on `agent`'s project configuration file under `output_dir`."""
 
-    _EditFile(dm, agent.GetProjectConfigurationPaths(output_dir))
+    _EditFile(dm, agent.GetProjectConfigurationFilename(output_dir))
 
 
 # ----------------------------------------------------------------------
@@ -91,7 +91,7 @@ def EditGlobalSkill(dm: DoneManager, skill_name: str, agent: Agent) -> None:
         dm.WriteError(_SkillsUnsupportedMessage(agent))
         return
 
-    _EditFile(dm, [path], "skill file")
+    _EditFile(dm, path, "skill file")
 
 
 # ----------------------------------------------------------------------
@@ -103,20 +103,16 @@ def EditLocalSkill(dm: DoneManager, skill_name: str, agent: Agent, output_dir: P
         dm.WriteError(_SkillsUnsupportedMessage(agent))
         return
 
-    _EditFile(dm, [path], "skill file")
+    _EditFile(dm, path, "skill file")
 
 
 # ----------------------------------------------------------------------
 def BrowseGlobal(dm: DoneManager, agent: Agent) -> None:
     """Open the directory containing `agent`'s global (user-level) configuration file in a file browser."""
 
-    paths = agent.GetGlobalConfigurationPaths()
+    filename = agent.GetGlobalConfigurationFilename()
 
-    if not paths:
-        dm.WriteError("The agent does not define any configuration locations.")
-        return
-
-    _BrowseDirectory(dm, paths[0].parent, "configuration directory")
+    _BrowseDirectory(dm, filename.parent, "configuration directory")
 
 
 # ----------------------------------------------------------------------
@@ -148,13 +144,12 @@ def BrowseLocalSkills(dm: DoneManager, agent: Agent, output_dir: Path) -> None:
 # |  Private Functions
 # |
 # ----------------------------------------------------------------------
-def _Render(dm: DoneManager, template: Path, paths: list[Path]) -> None:
-    """Render `template` and write the result to each path in `paths`."""
+def _Render(dm: DoneManager, template: Path, path: Path) -> None:
+    """Render `template` and write the result to `path`."""
 
     _, content = _RenderContent(template)
 
-    for path in paths:
-        _WriteFile(dm, path, content)
+    _WriteFile(dm, path, content)
 
 
 # ----------------------------------------------------------------------
@@ -224,14 +219,8 @@ def _WriteFile(dm: DoneManager, path: Path, content: str) -> None:
 
 
 # ----------------------------------------------------------------------
-def _EditFile(dm: DoneManager, paths: list[Path], file_label: str = "configuration file") -> None:
-    """Launch an editor on the first path in `paths`."""
-
-    if not paths:
-        dm.WriteError("The agent does not define any configuration locations.")
-        return
-
-    path = paths[0]
+def _EditFile(dm: DoneManager, path: Path, file_label: str = "configuration file") -> None:
+    """Launch an editor on `path`."""
 
     if not path.is_file():
         dm.WriteError(f"The {file_label} '{path}' does not exist.")
