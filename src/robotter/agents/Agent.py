@@ -13,10 +13,7 @@ import sys
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+from typing import ClassVar
 
 
 # ----------------------------------------------------------------------
@@ -74,22 +71,20 @@ class Agent(ABC):
 
     # ----------------------------------------------------------------------
     @classmethod
-    def GetGlobalConfigurationPaths(cls, operating_system: OperatingSystem | None = None) -> list[Path]:
-        """Return the current operating system's global configuration paths as fully-expanded, absolute paths."""
+    def GetGlobalConfigurationFilename(cls, operating_system: OperatingSystem | None = None) -> Path:
+        """Return the current operating system's global configuration filename as a fully-expanded, absolute path."""
 
         operating_system = operating_system or cls.GetOperatingSystem()
 
-        return [
-            Path(os.path.expandvars(str(path))).expanduser()
-            for path in cls._EnumGlobalConfigurationPaths(operating_system)
-        ]
+        filename = cls._GetGlobalConfigurationFilename(operating_system)
+        return Path(os.path.expandvars(str(filename))).expanduser()
 
     # ----------------------------------------------------------------------
     @classmethod
-    def GetProjectConfigurationPaths(cls, project_root: Path) -> list[Path]:
-        """Return the project configuration paths resolved against `project_root`."""
+    def GetProjectConfigurationFilename(cls, project_root: Path) -> Path:
+        """Return the project configuration filename resolved against `project_root`."""
 
-        return [project_root / path for path in cls._EnumProjectConfigurationNames()]
+        return project_root / cls._GetProjectConfigurationName()
 
     # ----------------------------------------------------------------------
     @classmethod
@@ -154,16 +149,14 @@ class Agent(ABC):
     # ----------------------------------------------------------------------
     @staticmethod
     @abstractmethod
-    def _EnumGlobalConfigurationPaths(
-        operating_system: OperatingSystem,
-    ) -> Iterator[Path]:
-        """Enumerate the raw, unexpanded global configuration paths for `operating_system`."""
+    def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
+        """Return the raw, unexpanded global configuration filename for `operating_system`."""
 
     # ----------------------------------------------------------------------
     @staticmethod
     @abstractmethod
-    def _EnumProjectConfigurationNames() -> Iterator[str]:
-        """Enumerate the project configuration path(s), each relative to a project's root directory."""
+    def _GetProjectConfigurationName() -> str:
+        """Return the project configuration filename, relative to a project's root directory."""
 
     # ----------------------------------------------------------------------
     @staticmethod
@@ -178,18 +171,19 @@ class Agent(ABC):
         """Return the project skills root directory (relative to a project's root), or `None` if unsupported."""
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @abstractmethod
     def _GetGlobalSkillPath(
+        cls,
         skill_name: str,
         operating_system: OperatingSystem,
     ) -> Path | None:
         """Return the unexpanded global skill path for `skill_name`, or `None` if unsupported."""
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
         """Return the project skill path for `skill_name` (relative to a project's root), or `None` if unsupported."""
 
     # ----------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Configuration-path locations for Anthropic's Claude Code agent."""
+"""Configuration-path locations for xAI's Grok CLI agent."""
 
 from pathlib import Path
 from typing import ClassVar, override
@@ -8,28 +8,28 @@ from robotter.agents.AgentImpl import AgentImpl
 
 
 # ----------------------------------------------------------------------
-class ClaudeCode(AgentImpl):
-    """Anthropic's Claude Code agent."""
+class Grok(AgentImpl):
+    """xAI's Grok CLI agent."""
 
-    name: ClassVar[str] = "Claude Code"
+    name: ClassVar[str] = "Grok"
 
     # ----------------------------------------------------------------------
     @classmethod
     @override
     def _GetGlobalConfigurationFilename(cls, operating_system: OperatingSystem) -> Path:
-        return cls._GetHomeRoot(operating_system) / ".claude" / "CLAUDE.md"
+        return cls._GetHomeRoot(operating_system) / ".grok" / "AGENTS.md"
 
     # ----------------------------------------------------------------------
     @staticmethod
     @override
     def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
         if operating_system == OperatingSystem.Windows:
-            return Path("%USERPROFILE%") / ".claude" / "skills"
+            return Path("%USERPROFILE%") / ".grok" / "skills"
 
-        return Path("~") / ".claude" / "skills"
+        return Path("~") / ".grok" / "skills"
 
     # ----------------------------------------------------------------------
     @staticmethod
     @override
     def _GetProjectSkillsRoot() -> Path | None:
-        return Path(".claude") / "skills"
+        return Path(".grok") / "skills"

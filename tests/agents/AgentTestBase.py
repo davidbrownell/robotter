@@ -54,8 +54,8 @@ class AgentTestBase:
     # Assigned by subclasses.
     agent_type: type[Agent]
     expected_name: str
-    global_templates: dict[OperatingSystem, list[str]]
-    project_paths: list[str]
+    global_template: dict[OperatingSystem, str]
+    project_path: str
 
     # Skill path templates keyed by operating system for the skill named `_SKILL_NAME`, or
     # `None` for every operating system if the agent does not support skills.
@@ -82,45 +82,40 @@ class AgentTestBase:
         "operating_system",
         [OperatingSystem.Windows, OperatingSystem.MacOS, OperatingSystem.Linux],
     )
-    def test_enum_global_configuration_paths(self, operating_system):
-        paths = list(self.agent_type._EnumGlobalConfigurationPaths(operating_system))
+    def test_get_global_configuration_filename_raw(self, operating_system):
+        filename = self.agent_type._GetGlobalConfigurationFilename(operating_system)
 
-        assert paths == [_TemplateToPath(template) for template in self.global_templates[operating_system]]
-
-    # ----------------------------------------------------------------------
-    def test_enum_project_configuration_names(self):
-        assert list(self.agent_type._EnumProjectConfigurationNames()) == self.project_paths
+        assert filename == _TemplateToPath(self.global_template[operating_system])
 
     # ----------------------------------------------------------------------
-    def test_get_global_configuration_paths(self, tmp_path, monkeypatch):
+    def test_get_project_configuration_name_raw(self):
+        assert self.agent_type._GetProjectConfigurationName() == self.project_path
+
+    # ----------------------------------------------------------------------
+    def test_get_global_configuration_filename(self, tmp_path, monkeypatch):
         # Point every "home" location at the temporary directory so nothing on the real
         # machine is referenced, regardless of which OS the test is running on.
         for var in ("HOME", "USERPROFILE", "APPDATA"):
             monkeypatch.setenv(var, str(tmp_path))
 
-        paths = self.agent_type().GetGlobalConfigurationPaths()
+        path = self.agent_type().GetGlobalConfigurationFilename()
 
-        # Only the current operating system's templates are resolved.
-        assert len(paths) == len(self.global_templates[Agent.GetOperatingSystem()])
-
-        for path in paths:
-            assert isinstance(path, Path)
-            assert path.is_absolute()
-            # All environment variables and '~' references have been expanded.
-            assert "~" not in str(path)
-            assert "%" not in str(path)
-            # Everything resolves beneath the redirected home directory.
-            assert path.is_relative_to(tmp_path)
+        # Only the current operating system's template is resolved.
+        assert isinstance(path, Path)
+        assert path.is_absolute()
+        # All environment variables and '~' references have been expanded.
+        assert "~" not in str(path)
+        assert "%" not in str(path)
+        # Everything resolves beneath the redirected home directory.
+        assert path.is_relative_to(tmp_path)
 
     # ----------------------------------------------------------------------
-    def test_get_project_configuration_paths(self, tmp_path):
-        paths = self.agent_type().GetProjectConfigurationPaths(tmp_path)
+    def test_get_project_configuration_filename(self, tmp_path):
+        path = self.agent_type().GetProjectConfigurationFilename(tmp_path)
 
-        assert paths == [tmp_path / relative for relative in self.project_paths]
-
-        for path in paths:
-            assert isinstance(path, Path)
-            assert path.is_absolute()
+        assert path == tmp_path / self.project_path
+        assert isinstance(path, Path)
+        assert path.is_absolute()
 
     # ----------------------------------------------------------------------
     @pytest.mark.parametrize(

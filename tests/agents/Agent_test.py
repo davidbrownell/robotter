@@ -19,13 +19,13 @@ class _StubAgent(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumGlobalConfigurationPaths(operating_system):
-        yield Path("config")
+    def _GetGlobalConfigurationFilename(operating_system):
+        return Path("config")
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _EnumProjectConfigurationNames():
-        yield "config"
+    def _GetProjectConfigurationName():
+        return "config"
 
     # ----------------------------------------------------------------------
     @staticmethod

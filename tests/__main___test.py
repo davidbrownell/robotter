@@ -12,7 +12,11 @@ import robotter.__main__ as main_module
 from robotter import __version__
 from robotter.__main__ import AgentType, app
 from robotter.agents.ClaudeCode import ClaudeCode
+from robotter.agents.Cline import Cline
+from robotter.agents.Cursor import Cursor
+from robotter.agents.GeminiCLI import GeminiCLI
 from robotter.agents.GitHubCopilot import GitHubCopilot
+from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
 from robotter.agents.OpenCode import OpenCode
 
@@ -118,7 +122,11 @@ class TestDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
+            (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -137,7 +145,7 @@ class TestDispatch:
         assert result.exit_code == 0, result.output
         render_global.assert_called_once()
         render_local.assert_not_called()
-        assert isinstance(render_global.call_args.args[1], agent_cls)
+        assert isinstance(render_global.call_args.args[2], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_renders_global(
@@ -153,7 +161,7 @@ class TestDispatch:
         render_global.assert_called_once()
         render_local.assert_not_called()
 
-        passed_template = render_global.call_args.args[0]
+        passed_template = render_global.call_args.args[1]
         assert Path(passed_template).resolve() == template.resolve()
 
     # ----------------------------------------------------------------------
@@ -175,7 +183,7 @@ class TestDispatch:
         render_local.assert_called_once()
         render_global.assert_not_called()
 
-        passed_template, _agent, passed_output_dir = render_local.call_args.args
+        _dm, passed_template, _agent, passed_output_dir = render_local.call_args.args
         assert Path(passed_template).resolve() == template.resolve()
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
@@ -187,7 +195,11 @@ class TestRenderSkillDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
+            (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -206,7 +218,7 @@ class TestRenderSkillDispatch:
         assert result.exit_code == 0, result.output
         render_global_skill.assert_called_once()
         render_local_skill.assert_not_called()
-        assert isinstance(render_global_skill.call_args.args[1], agent_cls)
+        assert isinstance(render_global_skill.call_args.args[2], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_renders_global(
@@ -222,7 +234,7 @@ class TestRenderSkillDispatch:
         render_global_skill.assert_called_once()
         render_local_skill.assert_not_called()
 
-        passed_template = render_global_skill.call_args.args[0]
+        passed_template = render_global_skill.call_args.args[1]
         assert Path(passed_template).resolve() == template.resolve()
 
     # ----------------------------------------------------------------------
@@ -244,7 +256,7 @@ class TestRenderSkillDispatch:
         render_local_skill.assert_called_once()
         render_global_skill.assert_not_called()
 
-        passed_template, _agent, passed_output_dir = render_local_skill.call_args.args
+        _dm, passed_template, _agent, passed_output_dir = render_local_skill.call_args.args
         assert Path(passed_template).resolve() == template.resolve()
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
@@ -314,7 +326,11 @@ class TestEditDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
+            (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -332,7 +348,7 @@ class TestEditDispatch:
         assert result.exit_code == 0, result.output
         edit_global.assert_called_once()
         edit_local.assert_not_called()
-        assert isinstance(edit_global.call_args.args[0], agent_cls)
+        assert isinstance(edit_global.call_args.args[1], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_edits_global(
@@ -362,7 +378,7 @@ class TestEditDispatch:
         edit_local.assert_called_once()
         edit_global.assert_not_called()
 
-        _agent, passed_output_dir = edit_local.call_args.args
+        _dm, _agent, passed_output_dir = edit_local.call_args.args
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
     # ----------------------------------------------------------------------
@@ -399,7 +415,11 @@ class TestEditSkillDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
+            (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -417,7 +437,7 @@ class TestEditSkillDispatch:
         assert result.exit_code == 0, result.output
         edit_global_skill.assert_called_once()
         edit_local_skill.assert_not_called()
-        assert isinstance(edit_global_skill.call_args.args[1], agent_cls)
+        assert isinstance(edit_global_skill.call_args.args[2], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_edits_global(
@@ -432,7 +452,7 @@ class TestEditSkillDispatch:
         edit_global_skill.assert_called_once()
         edit_local_skill.assert_not_called()
 
-        passed_skill_name = edit_global_skill.call_args.args[0]
+        passed_skill_name = edit_global_skill.call_args.args[1]
         assert passed_skill_name == "my-skill"
 
     # ----------------------------------------------------------------------
@@ -450,7 +470,7 @@ class TestEditSkillDispatch:
         edit_local_skill.assert_called_once()
         edit_global_skill.assert_not_called()
 
-        passed_skill_name, _agent, passed_output_dir = edit_local_skill.call_args.args
+        _dm, passed_skill_name, _agent, passed_output_dir = edit_local_skill.call_args.args
         assert passed_skill_name == "my-skill"
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
@@ -501,7 +521,11 @@ class TestBrowseDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
+            (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -516,7 +540,7 @@ class TestBrowseDispatch:
 
         assert result.exit_code == 0, result.output
         browse_spy.assert_called_once()
-        assert isinstance(browse_spy.call_args.args[0], agent_cls)
+        assert isinstance(browse_spy.call_args.args[1], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_unknown_agent_fails(
@@ -546,7 +570,11 @@ class TestBrowseSkillsDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
+            (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -564,7 +592,7 @@ class TestBrowseSkillsDispatch:
         assert result.exit_code == 0, result.output
         browse_global_skills.assert_called_once()
         browse_local_skills.assert_not_called()
-        assert isinstance(browse_global_skills.call_args.args[0], agent_cls)
+        assert isinstance(browse_global_skills.call_args.args[1], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_browses_global(
@@ -594,7 +622,7 @@ class TestBrowseSkillsDispatch:
         browse_local_skills.assert_called_once()
         browse_global_skills.assert_not_called()
 
-        _agent, passed_output_dir = browse_local_skills.call_args.args
+        _dm, _agent, passed_output_dir = browse_local_skills.call_args.args
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
     # ----------------------------------------------------------------------
