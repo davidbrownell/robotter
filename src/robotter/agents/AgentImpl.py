@@ -10,17 +10,11 @@ from robotter.agents.Agent import Agent, OperatingSystem
 class AgentImpl(Agent):
     """`Agent` specialization providing the defaults shared by most AI agents.
 
-    Two conveniences are provided:
-
-      - The project configuration filename defaults to the final component of the global
-        configuration filename (most agents use the same name in both scopes).
-
-      - A skill is located by joining an agent's skills root with the skill's name and the
-        shared skill filename.
-
-    Derived classes therefore only need to supply their configuration filenames and skills
-    roots; agents whose project-configuration or skill layout differs override the
-    corresponding method.
+    The project configuration filename defaults to the final component of the global
+    filename, and skills are located by joining an agent's skills root with the skill's
+    name and the shared skill filename. Derived classes therefore only supply their
+    configuration filenames and skills roots, overriding a method only where the layout
+    differs.
     """
 
     # The filename that defines a skill within its own directory beneath a skills root.

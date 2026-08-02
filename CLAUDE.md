@@ -1,4 +1,4 @@
-<!-- Version: 0.1.1 -->
+<!-- Version: 0.2.0 -->
 
 # Architectural Principles
 Adhere to these architectural principles when planning and writing code.
@@ -7,6 +7,13 @@ Adhere to these architectural principles when planning and writing code.
 - SOLID
 - Generate the least amount of code possible
 - Never modify code associated with the system under test when writing tests.
+
+# Documentation
+Adhere to these principles when generating code comments or documentation.
+
+- Do not introduce documentation for code that is common or easily understood.
+- Explain why code was introduced, not what the code is doing.
+- Generate short, crisp documentation rather than verbose prose.
 
 # Python Development
 Adhere to these conventions when writing python code.
@@ -51,5 +58,10 @@ import typer
 from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common import TextwrapEx
 
-from MyPackage import *
+from MyPackage import my_functionality
 ```
+
+## Documentation
+Use these conventions when generating code comments or documentation.
+
+- Generate short docstrings.

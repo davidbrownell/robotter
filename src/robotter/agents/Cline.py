@@ -9,19 +9,7 @@ from robotter.agents.AgentImpl import AgentImpl
 
 # ----------------------------------------------------------------------
 class Cline(AgentImpl):
-    r"""The Cline agent.
-
-    Cline reads rules from a directory of `.md`/`.txt` files rather than a single
-    configuration file: project rules from `<project>/.clinerules/` and global
-    (user-level) rules from a `Cline/Rules` directory under the user's `Documents`
-    folder (`%USERPROFILE%\\Documents\\Cline\\Rules` on Windows, `~/Documents/Cline/Rules`
-    otherwise). This agent targets a single `main.md` file within those directories.
-
-    Cline implements the cross-agent Agent Skills standard: project skills live under
-    `<project>/.cline/skills/` and global (user-level) skills under `~/.cline/skills/`
-    (`%USERPROFILE%\\.cline\\skills` on Windows), with each skill defined by a `SKILL.md`
-    file in its own directory.
-    """
+    """The Cline agent."""
 
     name: ClassVar[str] = "Cline"
 

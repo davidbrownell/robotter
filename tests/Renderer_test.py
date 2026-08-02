@@ -6,7 +6,7 @@ from textwrap import dedent
 import pytest
 from jinja2 import Environment
 
-from robotter.Renderer import Parse, RenderedTemplate
+from robotter.Renderer import Parse
 
 
 # ----------------------------------------------------------------------

@@ -9,17 +9,7 @@ from robotter.agents.AgentImpl import AgentImpl
 
 # ----------------------------------------------------------------------
 class GeminiCLI(AgentImpl):
-    r"""Google's Gemini CLI agent.
-
-    Gemini CLI reads context from `GEMINI.md` files: project context from a
-    `GEMINI.md` file at the project root and global (user-level) context from
-    `~/.gemini/GEMINI.md` (`%USERPROFILE%\\.gemini\\GEMINI.md` on Windows).
-
-    Gemini CLI implements the cross-agent Agent Skills standard: project skills live under
-    `<project>/.gemini/skills/` and global (user-level) skills under `~/.gemini/skills/`
-    (`%USERPROFILE%\\.gemini\\skills` on Windows), with each skill defined by a `SKILL.md`
-    file in its own directory.
-    """
+    """Google's Gemini CLI agent."""
 
     name: ClassVar[str] = "Gemini CLI"
 

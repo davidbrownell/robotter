@@ -27,21 +27,12 @@ class OperatingSystem(Enum):
 
 # ----------------------------------------------------------------------
 class Agent(ABC):
-    r"""Abstract base class describing where an AI agent reads its configuration.
+    """Abstract base class describing where an AI agent reads its configuration.
 
-    Two scopes of configuration are modeled:
-
-      - Global (a.k.a. user-level): applies to the user across every project. These
-        locations are absolute and operating-system-specific (for example,
-        `%USERPROFILE%\\.claude\\CLAUDE.md` on Windows versus `~/.claude/CLAUDE.md`
-        on Linux and macOS).
-
-      - Project: applies within a single project and is expressed relative to the
-        project's root directory (for example, a file named `CLAUDE.md`).
-
-    Derived classes provide the agent-specific paths and filenames; this base class
-    handles operating-system selection and environment-variable / home-directory
-    expansion, returning configuration locations as `pathlib.Path` instances.
+    Two scopes are modeled: global (user-level) locations are absolute and
+    operating-system-specific, while project locations are relative to a project's root.
+    Derived classes supply the agent-specific paths; this base class handles
+    operating-system selection and environment-variable / home-directory expansion.
     """
 
     # The human-readable name of the agent (for example, "Claude Code"). Derived
