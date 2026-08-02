@@ -26,6 +26,7 @@ from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.Cline import Cline
 from robotter.agents.Cursor import Cursor
+from robotter.agents.GeminiCLI import GeminiCLI
 from robotter.agents.GitHubCopilot import GitHubCopilot
 from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
@@ -39,6 +40,7 @@ class AgentType(StrEnum):
     ClaudeCode = "claude-code"
     Cline = "cline"
     Cursor = "cursor"
+    GeminiCLI = "gemini-cli"
     GitHubCopilot = "github-copilot"
     Grok = "grok"
     OpenAICodex = "openai-codex"
@@ -50,6 +52,7 @@ _AGENTS: dict[AgentType, type[Agent]] = {
     AgentType.ClaudeCode: ClaudeCode,
     AgentType.Cline: Cline,
     AgentType.Cursor: Cursor,
+    AgentType.GeminiCLI: GeminiCLI,
     AgentType.GitHubCopilot: GitHubCopilot,
     AgentType.Grok: Grok,
     AgentType.OpenAICodex: OpenAICodex,

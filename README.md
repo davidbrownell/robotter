@@ -42,6 +42,7 @@ Different agents read their configuration from different locations under differe
 | Claude Code | `claude-code` | `CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | Cline | `cline` | `.clinerules/main.md` | `~/Documents/Cline/Rules/main.md` |
 | Cursor | `cursor` | `.cursor/rules/main.mdc` | `~/.cursor/rules/main.mdc` |
+| Gemini CLI | `gemini-cli` | `GEMINI.md` | `~/.gemini/GEMINI.md` |
 | GitHub Copilot | `github-copilot` | `.github/copilot-instructions.md` | `<VS Code user>/prompts` |
 | Grok | `grok` | `AGENTS.md` | `~/.grok/AGENTS.md` |
 | OpenAI Codex | `openai-codex` | `AGENTS.md` | `~/.codex/AGENTS.md` |
@@ -54,6 +55,7 @@ Some agents also support "skills" — reusable instruction sets stored under a p
 | Claude Code | `claude-code` | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` |
 | Cline | `cline` | *(not supported)* | *(not supported)* |
 | Cursor | `cursor` | *(not supported)* | *(not supported)* |
+| Gemini CLI | `gemini-cli` | *(not supported)* | *(not supported)* |
 | GitHub Copilot | `github-copilot` | `.github/skills/<name>/SKILL.md` | `~/.copilot/skills/<name>/SKILL.md` |
 | Grok | `grok` | `.grok/skills/<name>/SKILL.md` | `~/.grok/skills/<name>/SKILL.md` |
 | OpenAI Codex | `openai-codex` | `.agents/skills/<name>/SKILL.md` | `~/.agents/skills/<name>/SKILL.md` |
@@ -71,7 +73,7 @@ uvx robotter render <template> <agent> [<dir>] [--verbose] [--debug]
 | Argument / Option | Description |
 | --- | --- |
 | `<template>` | Path to the template file to render. |
-| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
+| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
@@ -145,7 +147,7 @@ uvx robotter render_skill <template> <agent> [<dir>] [--verbose] [--debug]
 | Argument / Option | Description |
 | --- | --- |
 | `<template>` | Path to the skill template file to render. |
-| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
+| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
@@ -208,7 +210,7 @@ uvx robotter edit <agent> [<dir>] [--verbose] [--debug]
 
 | Argument / Option | Description |
 | --- | --- |
-| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
+| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Edit project-level configuration under this directory. When omitted, global (user-level) configuration is edited. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
@@ -239,7 +241,7 @@ uvx robotter edit_skill <name> <agent> [<dir>] [--verbose] [--debug]
 | Argument / Option | Description |
 | --- | --- |
 | `<name>` | Name of the skill to edit (the same name declared in the skill template's frontmatter). |
-| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
+| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Edit the project-level skill under this directory. When omitted, the global (user-level) skill is edited. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
@@ -269,7 +271,7 @@ uvx robotter browse <agent> [--verbose] [--debug]
 
 | Argument / Option | Description |
 | --- | --- |
-| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
+| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
 
@@ -292,7 +294,7 @@ uvx robotter browse_skills <agent> [<dir>] [--verbose] [--debug]
 
 | Argument / Option | Description |
 | --- | --- |
-| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
+| `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Browse the project-level skills directory under this directory. When omitted, the global (user-level) skills directory is browsed. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |

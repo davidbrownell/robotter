@@ -14,6 +14,7 @@ from robotter.__main__ import AgentType, app
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.Cline import Cline
 from robotter.agents.Cursor import Cursor
+from robotter.agents.GeminiCLI import GeminiCLI
 from robotter.agents.GitHubCopilot import GitHubCopilot
 from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
@@ -123,6 +124,7 @@ class TestDispatch:
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -195,6 +197,7 @@ class TestRenderSkillDispatch:
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -325,6 +328,7 @@ class TestEditDispatch:
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -413,6 +417,7 @@ class TestEditSkillDispatch:
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -518,6 +523,7 @@ class TestBrowseDispatch:
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
@@ -566,6 +572,7 @@ class TestBrowseSkillsDispatch:
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
+            (AgentType.GeminiCLI, GeminiCLI),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
