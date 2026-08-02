@@ -13,6 +13,7 @@ from robotter import __version__
 from robotter.__main__ import AgentType, app
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.GitHubCopilot import GitHubCopilot
+from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
 from robotter.agents.OpenCode import OpenCode
 
@@ -119,6 +120,7 @@ class TestDispatch:
         [
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -188,6 +190,7 @@ class TestRenderSkillDispatch:
         [
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -315,6 +318,7 @@ class TestEditDispatch:
         [
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -400,6 +404,7 @@ class TestEditSkillDispatch:
         [
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -502,6 +507,7 @@ class TestBrowseDispatch:
         [
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],
@@ -547,6 +553,7 @@ class TestBrowseSkillsDispatch:
         [
             (AgentType.ClaudeCode, ClaudeCode),
             (AgentType.GitHubCopilot, GitHubCopilot),
+            (AgentType.Grok, Grok),
             (AgentType.OpenAICodex, OpenAICodex),
             (AgentType.OpenCode, OpenCode),
         ],

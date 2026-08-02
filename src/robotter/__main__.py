@@ -25,6 +25,7 @@ from robotter.Lib import (
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.GitHubCopilot import GitHubCopilot
+from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
 from robotter.agents.OpenCode import OpenCode
 
@@ -35,6 +36,7 @@ class AgentType(StrEnum):
 
     ClaudeCode = "claude-code"
     GitHubCopilot = "github-copilot"
+    Grok = "grok"
     OpenAICodex = "openai-codex"
     OpenCode = "opencode"
 
@@ -43,6 +45,7 @@ class AgentType(StrEnum):
 _AGENTS: dict[AgentType, type[Agent]] = {
     AgentType.ClaudeCode: ClaudeCode,
     AgentType.GitHubCopilot: GitHubCopilot,
+    AgentType.Grok: Grok,
     AgentType.OpenAICodex: OpenAICodex,
     AgentType.OpenCode: OpenCode,
 }
