@@ -24,6 +24,7 @@ from robotter.Lib import (
 )
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
+from robotter.agents.Cline import Cline
 from robotter.agents.Cursor import Cursor
 from robotter.agents.GitHubCopilot import GitHubCopilot
 from robotter.agents.Grok import Grok
@@ -36,6 +37,7 @@ class AgentType(StrEnum):
     """The AI agents whose configuration locations can be rendered to."""
 
     ClaudeCode = "claude-code"
+    Cline = "cline"
     Cursor = "cursor"
     GitHubCopilot = "github-copilot"
     Grok = "grok"
@@ -46,6 +48,7 @@ class AgentType(StrEnum):
 # ----------------------------------------------------------------------
 _AGENTS: dict[AgentType, type[Agent]] = {
     AgentType.ClaudeCode: ClaudeCode,
+    AgentType.Cline: Cline,
     AgentType.Cursor: Cursor,
     AgentType.GitHubCopilot: GitHubCopilot,
     AgentType.Grok: Grok,

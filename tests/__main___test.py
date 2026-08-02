@@ -12,6 +12,7 @@ import robotter.__main__ as main_module
 from robotter import __version__
 from robotter.__main__ import AgentType, app
 from robotter.agents.ClaudeCode import ClaudeCode
+from robotter.agents.Cline import Cline
 from robotter.agents.Cursor import Cursor
 from robotter.agents.GitHubCopilot import GitHubCopilot
 from robotter.agents.Grok import Grok
@@ -120,6 +121,7 @@ class TestDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
@@ -191,6 +193,7 @@ class TestRenderSkillDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
@@ -320,6 +323,7 @@ class TestEditDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
@@ -407,6 +411,7 @@ class TestEditSkillDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
@@ -511,6 +516,7 @@ class TestBrowseDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
@@ -558,6 +564,7 @@ class TestBrowseSkillsDispatch:
         ("agent_type", "agent_cls"),
         [
             (AgentType.ClaudeCode, ClaudeCode),
+            (AgentType.Cline, Cline),
             (AgentType.Cursor, Cursor),
             (AgentType.GitHubCopilot, GitHubCopilot),
             (AgentType.Grok, Grok),
