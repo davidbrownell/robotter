@@ -27,20 +27,31 @@ class OpenAICodex(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
-        return None
+    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
+        if operating_system == OperatingSystem.Windows:
+            return Path("%USERPROFILE%") / ".agents" / "skills"
+
+        return Path("~") / ".agents" / "skills"
 
     # ----------------------------------------------------------------------
     @staticmethod
     def _GetProjectSkillsRoot() -> Path | None:
-        return None
+        return Path(".agents") / "skills"
 
     # ----------------------------------------------------------------------
-    @staticmethod
-    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
-        return None
+    @classmethod
+    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
+        root = cls._GetGlobalSkillsRoot(operating_system)
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
 
     # ----------------------------------------------------------------------
-    @staticmethod
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:  # noqa: ARG004
-        return None
+    @classmethod
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
+        root = cls._GetProjectSkillsRoot()
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"

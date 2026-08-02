@@ -50,10 +50,10 @@ Some agents also support "skills" — reusable instruction sets stored under a p
 | Agent | Value | Project Skill | Global Skill |
 | --- | --- | --- | --- |
 | Claude Code | `claude-code` | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` |
-| GitHub Copilot | `github-copilot` | _(not supported)_ | _(not supported)_ |
+| GitHub Copilot | `github-copilot` | `.github/skills/<name>/SKILL.md` | `~/.copilot/skills/<name>/SKILL.md` |
 | Grok | `grok` | `.grok/skills/<name>/SKILL.md` | `~/.grok/skills/<name>/SKILL.md` |
-| OpenAI Codex | `openai-codex` | _(not supported)_ | _(not supported)_ |
-| OpenCode | `opencode` | _(not supported)_ | _(not supported)_ |
+| OpenAI Codex | `openai-codex` | `.agents/skills/<name>/SKILL.md` | `~/.agents/skills/<name>/SKILL.md` |
+| OpenCode | `opencode` | `.opencode/skills/<name>/SKILL.md` | `~/.config/opencode/skills/<name>/SKILL.md` |
 
 Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved in the rendered output) and may compose other templates via the `include_configuration("<relative path>")` function, letting you maintain shared content once and assemble agent-specific files from it (see [Example Configuration](#example-configuration) and [Example Skill](#example-skill) below).
 

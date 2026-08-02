@@ -30,20 +30,35 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
-        return None
+    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
+        # Unlike the global configuration file (which lives under the Visual Studio Code
+        # user directory), Agent Skills follow the cross-agent open standard and are read
+        # from the home directory. This divergence is intentional; the two features do not
+        # share a root. See https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills.
+        if operating_system == OperatingSystem.Windows:
+            return Path("%USERPROFILE%") / ".copilot" / "skills"
+
+        return Path("~") / ".copilot" / "skills"
 
     # ----------------------------------------------------------------------
     @staticmethod
     def _GetProjectSkillsRoot() -> Path | None:
-        return None
+        return Path(".github") / "skills"
 
     # ----------------------------------------------------------------------
-    @staticmethod
-    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
-        return None
+    @classmethod
+    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
+        root = cls._GetGlobalSkillsRoot(operating_system)
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
 
     # ----------------------------------------------------------------------
-    @staticmethod
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:  # noqa: ARG004
-        return None
+    @classmethod
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
+        root = cls._GetProjectSkillsRoot()
+        if root is None:
+            return None  # pragma: no cover
+
+        return root / skill_name / "SKILL.md"
