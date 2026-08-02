@@ -1,7 +1,7 @@
 """Configuration-path locations for GitHub Copilot (as hosted within Visual Studio Code)."""
 
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, override
 
 from robotter.agents.Agent import Agent, OperatingSystem
 
@@ -14,6 +14,7 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
         if operating_system == OperatingSystem.Windows:
             return Path("%APPDATA%") / "Code" / "User" / "prompts"
@@ -25,11 +26,13 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetProjectConfigurationName() -> str:
         return ".github/copilot-instructions.md"
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
         # Unlike the global configuration file (which lives under the Visual Studio Code
         # user directory), Agent Skills follow the cross-agent open standard and are read
@@ -42,11 +45,13 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetProjectSkillsRoot() -> Path | None:
         return Path(".github") / "skills"
 
     # ----------------------------------------------------------------------
     @classmethod
+    @override
     def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
         root = cls._GetGlobalSkillsRoot(operating_system)
         if root is None:
@@ -56,6 +61,7 @@ class GitHubCopilot(Agent):
 
     # ----------------------------------------------------------------------
     @classmethod
+    @override
     def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
         root = cls._GetProjectSkillsRoot()
         if root is None:

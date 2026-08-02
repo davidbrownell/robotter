@@ -1,7 +1,7 @@
 """Configuration-path locations for the Cursor agent."""
 
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, override
 
 from robotter.agents.Agent import Agent, OperatingSystem
 
@@ -23,6 +23,7 @@ class Cursor(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
         if operating_system == OperatingSystem.Windows:
             return Path("%USERPROFILE%") / ".cursor" / "rules" / "main.mdc"
@@ -31,25 +32,30 @@ class Cursor(Agent):
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetProjectConfigurationName() -> str:
         return ".cursor/rules/main.mdc"
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
+    @override
+    def _GetGlobalSkillsRoot(operating_system: OperatingSystem) -> Path | None:
         return None
 
     # ----------------------------------------------------------------------
     @staticmethod
+    @override
     def _GetProjectSkillsRoot() -> Path | None:
         return None
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
+    @override
+    def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:
         return None
 
     # ----------------------------------------------------------------------
     @staticmethod
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:  # noqa: ARG004
+    @override
+    def _GetProjectSkillPath(skill_name: str) -> Path | None:
         return None
