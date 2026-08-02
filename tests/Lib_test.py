@@ -70,14 +70,14 @@ def _MakeAgent(
                 return None
             return Path(project_skills_root)
 
-        @staticmethod
-        def _GetGlobalSkillPath(skill_name: str, operating_system: OperatingSystem) -> Path | None:  # noqa: ARG004
+        @classmethod
+        def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:  # noqa: ARG003
             if global_skill_template is None:
                 return None
             return Path(global_skill_template.format(skill_name=skill_name))
 
-        @staticmethod
-        def _GetProjectSkillPath(skill_name: str) -> Path | None:
+        @classmethod
+        def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
             if project_skill_template is None:
                 return None
             return Path(project_skill_template.format(skill_name=skill_name))

@@ -3,29 +3,21 @@
 from pathlib import Path
 from typing import ClassVar, override
 
-from robotter.agents.Agent import Agent, OperatingSystem
+from robotter.agents.Agent import OperatingSystem
+from robotter.agents.AgentImpl import AgentImpl
 
 
 # ----------------------------------------------------------------------
-class OpenAICodex(Agent):
+class OpenAICodex(AgentImpl):
     """OpenAI's Codex CLI agent."""
 
     name: ClassVar[str] = "OpenAI Codex"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
-        if operating_system == OperatingSystem.Windows:
-            return Path("%USERPROFILE%") / ".codex" / "AGENTS.md"
-
-        return Path("~") / ".codex" / "AGENTS.md"
-
-    # ----------------------------------------------------------------------
-    @staticmethod
-    @override
-    def _GetProjectConfigurationName() -> str:
-        return "AGENTS.md"
+    def _GetGlobalConfigurationFilename(cls, operating_system: OperatingSystem) -> Path:
+        return cls._GetHomeRoot(operating_system) / ".codex" / "AGENTS.md"
 
     # ----------------------------------------------------------------------
     @staticmethod
@@ -41,23 +33,3 @@ class OpenAICodex(Agent):
     @override
     def _GetProjectSkillsRoot() -> Path | None:
         return Path(".agents") / "skills"
-
-    # ----------------------------------------------------------------------
-    @classmethod
-    @override
-    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
-        root = cls._GetGlobalSkillsRoot(operating_system)
-        if root is None:
-            return None  # pragma: no cover
-
-        return root / skill_name / "SKILL.md"
-
-    # ----------------------------------------------------------------------
-    @classmethod
-    @override
-    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
-        root = cls._GetProjectSkillsRoot()
-        if root is None:
-            return None  # pragma: no cover
-
-        return root / skill_name / "SKILL.md"

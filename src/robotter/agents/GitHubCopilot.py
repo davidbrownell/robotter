@@ -3,11 +3,12 @@
 from pathlib import Path
 from typing import ClassVar, override
 
-from robotter.agents.Agent import Agent, OperatingSystem
+from robotter.agents.Agent import OperatingSystem
+from robotter.agents.AgentImpl import AgentImpl
 
 
 # ----------------------------------------------------------------------
-class GitHubCopilot(Agent):
+class GitHubCopilot(AgentImpl):
     """GitHub Copilot (as hosted within Visual Studio Code)."""
 
     name: ClassVar[str] = "GitHub Copilot"
@@ -25,9 +26,9 @@ class GitHubCopilot(Agent):
         return Path("~") / ".config" / "Code" / "User" / "prompts"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetProjectConfigurationName() -> str:
+    def _GetProjectConfigurationName(cls) -> str:
         return ".github/copilot-instructions.md"
 
     # ----------------------------------------------------------------------
@@ -48,23 +49,3 @@ class GitHubCopilot(Agent):
     @override
     def _GetProjectSkillsRoot() -> Path | None:
         return Path(".github") / "skills"
-
-    # ----------------------------------------------------------------------
-    @classmethod
-    @override
-    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
-        root = cls._GetGlobalSkillsRoot(operating_system)
-        if root is None:
-            return None  # pragma: no cover
-
-        return root / skill_name / "SKILL.md"
-
-    # ----------------------------------------------------------------------
-    @classmethod
-    @override
-    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
-        root = cls._GetProjectSkillsRoot()
-        if root is None:
-            return None  # pragma: no cover
-
-        return root / skill_name / "SKILL.md"

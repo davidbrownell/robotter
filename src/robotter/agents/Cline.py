@@ -3,11 +3,12 @@
 from pathlib import Path
 from typing import ClassVar, override
 
-from robotter.agents.Agent import Agent, OperatingSystem
+from robotter.agents.Agent import OperatingSystem
+from robotter.agents.AgentImpl import AgentImpl
 
 
 # ----------------------------------------------------------------------
-class Cline(Agent):
+class Cline(AgentImpl):
     r"""The Cline agent.
 
     Cline reads rules from a directory of `.md`/`.txt` files rather than a single
@@ -25,18 +26,15 @@ class Cline(Agent):
     name: ClassVar[str] = "Cline"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetGlobalConfigurationFilename(operating_system: OperatingSystem) -> Path:
-        if operating_system == OperatingSystem.Windows:
-            return Path("%USERPROFILE%") / "Documents" / "Cline" / "Rules" / "main.md"
-
-        return Path("~") / "Documents" / "Cline" / "Rules" / "main.md"
+    def _GetGlobalConfigurationFilename(cls, operating_system: OperatingSystem) -> Path:
+        return cls._GetHomeRoot(operating_system) / "Documents" / "Cline" / "Rules" / "main.md"
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @override
-    def _GetProjectConfigurationName() -> str:
+    def _GetProjectConfigurationName(cls) -> str:
         return ".clinerules/main.md"
 
     # ----------------------------------------------------------------------
@@ -53,23 +51,3 @@ class Cline(Agent):
     @override
     def _GetProjectSkillsRoot() -> Path | None:
         return Path(".cline") / "skills"
-
-    # ----------------------------------------------------------------------
-    @classmethod
-    @override
-    def _GetGlobalSkillPath(cls, skill_name: str, operating_system: OperatingSystem) -> Path | None:
-        root = cls._GetGlobalSkillsRoot(operating_system)
-        if root is None:
-            return None  # pragma: no cover
-
-        return root / skill_name / "SKILL.md"
-
-    # ----------------------------------------------------------------------
-    @classmethod
-    @override
-    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
-        root = cls._GetProjectSkillsRoot()
-        if root is None:
-            return None  # pragma: no cover
-
-        return root / skill_name / "SKILL.md"

@@ -171,18 +171,19 @@ class Agent(ABC):
         """Return the project skills root directory (relative to a project's root), or `None` if unsupported."""
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @abstractmethod
     def _GetGlobalSkillPath(
+        cls,
         skill_name: str,
         operating_system: OperatingSystem,
     ) -> Path | None:
         """Return the unexpanded global skill path for `skill_name`, or `None` if unsupported."""
 
     # ----------------------------------------------------------------------
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def _GetProjectSkillPath(skill_name: str) -> Path | None:
+    def _GetProjectSkillPath(cls, skill_name: str) -> Path | None:
         """Return the project skill path for `skill_name` (relative to a project's root), or `None` if unsupported."""
 
     # ----------------------------------------------------------------------
