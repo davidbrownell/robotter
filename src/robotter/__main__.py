@@ -107,11 +107,11 @@ def Render(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Rendering '{agent.name}'..."):
+        with dm.Nested(f"Rendering '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                RenderGlobal(template, agent_instance)
+                RenderGlobal(nested_dm, template, agent_instance)
             else:
-                RenderLocal(template, agent_instance, output_dir)
+                RenderLocal(nested_dm, template, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------
@@ -156,11 +156,11 @@ def RenderSkill(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Rendering skill '{agent.name}'..."):
+        with dm.Nested(f"Rendering skill '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                RenderGlobalSkill(template, agent_instance)
+                RenderGlobalSkill(nested_dm, template, agent_instance)
             else:
-                RenderLocalSkill(template, agent_instance, output_dir)
+                RenderLocalSkill(nested_dm, template, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------
@@ -196,11 +196,11 @@ def Edit(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Editing '{agent.name}'..."):
+        with dm.Nested(f"Editing '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                EditGlobal(agent_instance)
+                EditGlobal(nested_dm, agent_instance)
             else:
-                EditLocal(agent_instance, output_dir)
+                EditLocal(nested_dm, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------
@@ -242,11 +242,11 @@ def EditSkill(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Editing skill '{agent.name}'..."):
+        with dm.Nested(f"Editing skill '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                EditGlobalSkill(skill_name, agent_instance)
+                EditGlobalSkill(nested_dm, skill_name, agent_instance)
             else:
-                EditLocalSkill(skill_name, agent_instance, output_dir)
+                EditLocalSkill(nested_dm, skill_name, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------
@@ -274,8 +274,8 @@ def Browse(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Browsing '{agent.name}'..."):
-            BrowseGlobal(agent_instance)
+        with dm.Nested(f"Browsing '{agent.name}'...") as nested_dm:
+            BrowseGlobal(nested_dm, agent_instance)
 
 
 # ----------------------------------------------------------------------
@@ -311,11 +311,11 @@ def BrowseSkills(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Browsing skills '{agent.name}'..."):
+        with dm.Nested(f"Browsing skills '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                BrowseGlobalSkills(agent_instance)
+                BrowseGlobalSkills(nested_dm, agent_instance)
             else:
-                BrowseLocalSkills(agent_instance, output_dir)
+                BrowseLocalSkills(nested_dm, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------

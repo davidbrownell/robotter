@@ -1,11 +1,15 @@
 """Unit tests for robotter.Lib"""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from textwrap import dedent
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
+
+from dbrownell_Common.Streams.DoneManager import DoneManager
+from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
 
 import robotter.Lib as lib_module
 
@@ -96,31 +100,49 @@ def template(tmp_path: Path):
 
 
 # ----------------------------------------------------------------------
+@pytest.fixture
+def dm() -> Iterator[DoneManager]:
+    """Provide a `DoneManager` whose captured output is discarded.
+
+    Tests that assert on the captured output drive `GenerateDoneManagerAndContent`
+    directly instead of using this fixture.
+    """
+
+    generator = GenerateDoneManagerAndContent()
+    yield cast(DoneManager, next(generator))
+
+    # Finalize the underlying DoneManager context.
+    for _ in generator:
+        pass
+
+
+# ----------------------------------------------------------------------
 class TestRenderLocal:
     # ----------------------------------------------------------------------
-    def test_writes_rendered_content(self, template, tmp_path: Path):
+    def test_writes_rendered_content(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=("CONFIG.md",))
         output_dir = tmp_path / "out"
 
-        RenderLocal(template("Hello, world!"), agent, output_dir)
+        RenderLocal(dm, template("Hello, world!"), agent, output_dir)
 
         assert (output_dir / "CONFIG.md").read_text(encoding="utf-8") == "Hello, world!"
 
     # ----------------------------------------------------------------------
-    def test_renders_jinja2(self, template, tmp_path: Path):
+    def test_renders_jinja2(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=("CONFIG.md",))
         output_dir = tmp_path / "out"
 
-        RenderLocal(template("Value: {{ 1 + 2 }}"), agent, output_dir)
+        RenderLocal(dm, template("Value: {{ 1 + 2 }}"), agent, output_dir)
 
         assert (output_dir / "CONFIG.md").read_text(encoding="utf-8") == "Value: 3"
 
     # ----------------------------------------------------------------------
-    def test_preserves_frontmatter(self, template, tmp_path: Path):
+    def test_preserves_frontmatter(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=("CONFIG.md",))
         output_dir = tmp_path / "out"
 
         RenderLocal(
+            dm,
             template(
                 dedent("""\
                 ---
@@ -139,61 +161,81 @@ class TestRenderLocal:
             Body: 6""")
 
     # ----------------------------------------------------------------------
-    def test_creates_parent_directories(self, template, tmp_path: Path):
+    def test_creates_parent_directories(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=("nested/dir/CONFIG.md",))
         output_dir = tmp_path / "out"
 
-        RenderLocal(template("content"), agent, output_dir)
+        RenderLocal(dm, template("content"), agent, output_dir)
 
         assert (output_dir / "nested" / "dir" / "CONFIG.md").read_text(encoding="utf-8") == "content"
 
     # ----------------------------------------------------------------------
-    def test_writes_to_every_project_path(self, template, tmp_path: Path):
+    def test_writes_to_every_project_path(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=("A.md", "sub/B.md"))
         output_dir = tmp_path / "out"
 
-        RenderLocal(template("shared"), agent, output_dir)
+        RenderLocal(dm, template("shared"), agent, output_dir)
 
         assert (output_dir / "A.md").read_text(encoding="utf-8") == "shared"
         assert (output_dir / "sub" / "B.md").read_text(encoding="utf-8") == "shared"
 
     # ----------------------------------------------------------------------
-    def test_encodes_as_utf8(self, template, tmp_path: Path):
+    def test_encodes_as_utf8(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=("CONFIG.md",))
         output_dir = tmp_path / "out"
 
-        RenderLocal(template("café — naïve — 日本語"), agent, output_dir)
+        RenderLocal(dm, template("café — naïve — 日本語"), agent, output_dir)
 
         written = output_dir / "CONFIG.md"
         assert written.read_bytes() == "café — naïve — 日本語".encode()
 
     # ----------------------------------------------------------------------
-    def test_no_project_paths_writes_nothing(self, template, tmp_path: Path):
+    def test_no_project_paths_writes_nothing(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_paths=())
         output_dir = tmp_path / "out"
 
-        RenderLocal(template("content"), agent, output_dir)
+        RenderLocal(dm, template("content"), agent, output_dir)
 
         assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_writes_each_written_file_to_the_done_manager(self, template, tmp_path: Path):
+        agent = _MakeAgent(project_paths=("A.md", "sub/B.md"))
+        output_dir = tmp_path / "out"
+
+        generator = GenerateDoneManagerAndContent()
+        dm = cast(DoneManager, next(generator))
+
+        RenderLocal(dm, template("shared"), agent, output_dir)
+
+        content = cast(str, next(generator))
+
+        assert content == dedent(f"""\
+            Heading...
+              Writing '{output_dir / "A.md"}'...DONE! (0, <scrubbed duration>)
+              Writing '{output_dir / "sub" / "B.md"}'...DONE! (0, <scrubbed duration>)
+            DONE! (0, <scrubbed duration>)
+            """)
 
 
 # ----------------------------------------------------------------------
 class TestRenderGlobal:
     # ----------------------------------------------------------------------
-    def test_writes_rendered_content(self, template, tmp_path: Path):
+    def test_writes_rendered_content(self, template, tmp_path: Path, dm: DoneManager):
         target = tmp_path / "global" / "CONFIG.md"
         agent = _MakeAgent(global_paths=(str(target),))
 
-        RenderGlobal(template("Value: {{ 3 + 4 }}"), agent)
+        RenderGlobal(dm, template("Value: {{ 3 + 4 }}"), agent)
 
         assert target.read_text(encoding="utf-8") == "Value: 7"
 
     # ----------------------------------------------------------------------
-    def test_preserves_frontmatter(self, template, tmp_path: Path):
+    def test_preserves_frontmatter(self, template, tmp_path: Path, dm: DoneManager):
         target = tmp_path / "CONFIG.md"
         agent = _MakeAgent(global_paths=(str(target),))
 
         RenderGlobal(
+            dm,
             template(
                 dedent("""\
                 ---
@@ -211,24 +253,24 @@ class TestRenderGlobal:
             Body""")
 
     # ----------------------------------------------------------------------
-    def test_expands_environment_variables(self, template, tmp_path: Path, monkeypatch):
+    def test_expands_environment_variables(self, template, tmp_path: Path, monkeypatch, dm: DoneManager):
         # The global path templates are expanded, so an env-var reference resolves.
         for var in ("HOME", "USERPROFILE", "APPDATA"):
             monkeypatch.setenv(var, str(tmp_path))
 
         agent = _MakeAgent(global_paths=("~/CONFIG.md",))
 
-        RenderGlobal(template("content"), agent)
+        RenderGlobal(dm, template("content"), agent)
 
         assert (tmp_path / "CONFIG.md").read_text(encoding="utf-8") == "content"
 
     # ----------------------------------------------------------------------
-    def test_writes_to_every_global_path(self, template, tmp_path: Path):
+    def test_writes_to_every_global_path(self, template, tmp_path: Path, dm: DoneManager):
         target_a = tmp_path / "a" / "CONFIG.md"
         target_b = tmp_path / "b" / "CONFIG.md"
         agent = _MakeAgent(global_paths=(str(target_a), str(target_b)))
 
-        RenderGlobal(template("shared"), agent)
+        RenderGlobal(dm, template("shared"), agent)
 
         assert target_a.read_text(encoding="utf-8") == "shared"
         assert target_b.read_text(encoding="utf-8") == "shared"
@@ -237,11 +279,12 @@ class TestRenderGlobal:
 # ----------------------------------------------------------------------
 class TestRenderLocalSkill:
     # ----------------------------------------------------------------------
-    def test_writes_to_skill_path_named_by_frontmatter(self, template, tmp_path: Path):
+    def test_writes_to_skill_path_named_by_frontmatter(self, template, tmp_path: Path, dm: DoneManager):
         agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
         output_dir = tmp_path / "out"
 
         RenderLocalSkill(
+            dm,
             template(
                 dedent("""\
                 ---
@@ -260,62 +303,79 @@ class TestRenderLocalSkill:
             Body: 4""")
 
     # ----------------------------------------------------------------------
-    def test_unsupported_agent_raises(self, template, tmp_path: Path):
+    def test_unsupported_agent_writes_error(self, template, tmp_path: Path):
         agent = _MakeAgent(project_skill_template=None)
         output_dir = tmp_path / "out"
 
-        with pytest.raises(ValueError, match="does not support skills"):
-            RenderLocalSkill(
-                template(
-                    dedent("""\
-                    ---
-                    name: my-skill
-                    ---
-                    Body""")
-                ),
-                agent,
-                output_dir,
-            )
+        generator = GenerateDoneManagerAndContent()
+        dm = cast(DoneManager, next(generator))
 
+        RenderLocalSkill(
+            dm,
+            template(
+                dedent("""\
+                ---
+                name: my-skill
+                ---
+                Body""")
+            ),
+            agent,
+            output_dir,
+        )
+
+        content = cast(str, next(generator))
+
+        assert content == dedent("""\
+            Heading...
+              ERROR: The 'Stub' agent does not support skills.
+            DONE! (-1, <scrubbed duration>)
+            """)
         assert not output_dir.exists()
 
     # ----------------------------------------------------------------------
-    def test_missing_frontmatter_raises(self, template, tmp_path: Path):
+    def test_missing_frontmatter_writes_error(self, template, tmp_path: Path):
         agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
         output_dir = tmp_path / "out"
+        template_path = template("Body without frontmatter")
 
-        with pytest.raises(ValueError, match="does not have frontmatter"):
-            RenderLocalSkill(template("Body without frontmatter"), agent, output_dir)
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError(f"The skill template '{template_path}' does not have frontmatter.")
+        assert not output_dir.exists()
 
     # ----------------------------------------------------------------------
-    def test_missing_name_attribute_raises(self, template, tmp_path: Path):
+    def test_missing_name_attribute_writes_error(self, template, tmp_path: Path):
         agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
         output_dir = tmp_path / "out"
+        template_path = template(
+            dedent("""\
+                ---
+                description: no name here
+                ---
+                Body""")
+        )
 
-        with pytest.raises(ValueError, match="does not have a 'name' frontmatter attribute"):
-            RenderLocalSkill(
-                template(
-                    dedent("""\
-                    ---
-                    description: no name here
-                    ---
-                    Body""")
-                ),
-                agent,
-                output_dir,
-            )
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError(
+            f"The skill template '{template_path}' does not have a 'name' frontmatter attribute."
+        )
+        assert not output_dir.exists()
 
 
 # ----------------------------------------------------------------------
 class TestRenderGlobalSkill:
     # ----------------------------------------------------------------------
-    def test_writes_to_skill_path_named_by_frontmatter(self, template, tmp_path: Path, monkeypatch):
+    def test_writes_to_skill_path_named_by_frontmatter(
+        self, template, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
         for var in ("HOME", "USERPROFILE", "APPDATA"):
             monkeypatch.setenv(var, str(tmp_path))
 
         agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
 
         RenderGlobalSkill(
+            dm,
             template(
                 dedent("""\
                 ---
@@ -333,48 +393,84 @@ class TestRenderGlobalSkill:
             Body: 2""")
 
     # ----------------------------------------------------------------------
-    def test_unsupported_agent_raises(self, template, tmp_path: Path, monkeypatch):
+    def test_unsupported_agent_writes_error(self, template, tmp_path: Path, monkeypatch):
         for var in ("HOME", "USERPROFILE", "APPDATA"):
             monkeypatch.setenv(var, str(tmp_path))
 
         agent = _MakeAgent(global_skill_template=None)
 
-        with pytest.raises(ValueError, match="does not support skills"):
-            RenderGlobalSkill(
-                template(
-                    dedent("""\
-                    ---
-                    name: my-skill
-                    ---
-                    Body""")
-                ),
-                agent,
-            )
+        generator = GenerateDoneManagerAndContent()
+        dm = cast(DoneManager, next(generator))
 
+        RenderGlobalSkill(
+            dm,
+            template(
+                dedent("""\
+                ---
+                name: my-skill
+                ---
+                Body""")
+            ),
+            agent,
+        )
+
+        content = cast(str, next(generator))
+
+        assert content == dedent("""\
+            Heading...
+              ERROR: The 'Stub' agent does not support skills.
+            DONE! (-1, <scrubbed duration>)
+            """)
         assert list(tmp_path.iterdir()) == [tmp_path / "template.md"]
 
     # ----------------------------------------------------------------------
-    def test_missing_frontmatter_raises(self, template):
+    def test_missing_frontmatter_writes_error(self, template):
         agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+        template_path = template("Body without frontmatter")
 
-        with pytest.raises(ValueError, match="does not have frontmatter"):
-            RenderGlobalSkill(template("Body without frontmatter"), agent)
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        assert content == _ExpectedError(f"The skill template '{template_path}' does not have frontmatter.")
 
     # ----------------------------------------------------------------------
-    def test_missing_name_attribute_raises(self, template):
+    def test_missing_name_attribute_writes_error(self, template):
         agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+        template_path = template(
+            dedent("""\
+                ---
+                description: no name here
+                ---
+                Body""")
+        )
 
-        with pytest.raises(ValueError, match="does not have a 'name' frontmatter attribute"):
-            RenderGlobalSkill(
-                template(
-                    dedent("""\
-                    ---
-                    description: no name here
-                    ---
-                    Body""")
-                ),
-                agent,
-            )
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        assert content == _ExpectedError(
+            f"The skill template '{template_path}' does not have a 'name' frontmatter attribute."
+        )
+
+
+# ----------------------------------------------------------------------
+def _RunCapturingContent(func: Callable[[DoneManager], None]) -> str:
+    """Invoke `func` with a fresh `DoneManager` and return the captured, scrubbed output."""
+
+    generator = GenerateDoneManagerAndContent()
+    dm = cast(DoneManager, next(generator))
+
+    func(dm)
+
+    return cast(str, next(generator))
+
+
+# ----------------------------------------------------------------------
+def _ExpectedError(message: str) -> str:
+    """Return the captured output expected when `message` is written as an error."""
+
+    return dedent(f"""\
+        Heading...
+          ERROR: {message}
+        DONE! (-1, <scrubbed duration>)
+        """)
 
 
 # ----------------------------------------------------------------------
@@ -405,6 +501,7 @@ class TestEditLocal:
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, _startfile_spy = launcher
         agent = _MakeAgent(project_paths=("CONFIG.md",))
@@ -412,7 +509,7 @@ class TestEditLocal:
         output_dir.mkdir()
         (output_dir / "CONFIG.md").write_text("content", encoding="utf-8")
 
-        EditLocal(agent, output_dir)
+        EditLocal(dm, agent, output_dir)
 
         run_spy.assert_called_once_with(["my-editor", str(output_dir / "CONFIG.md")], check=True)
 
@@ -421,6 +518,7 @@ class TestEditLocal:
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, _startfile_spy = launcher
         agent = _MakeAgent(project_paths=("A.md", "B.md"))
@@ -429,12 +527,12 @@ class TestEditLocal:
         (output_dir / "A.md").write_text("a", encoding="utf-8")
         (output_dir / "B.md").write_text("b", encoding="utf-8")
 
-        EditLocal(agent, output_dir)
+        EditLocal(dm, agent, output_dir)
 
         run_spy.assert_called_once_with(["my-editor", str(output_dir / "A.md")], check=True)
 
     # ----------------------------------------------------------------------
-    def test_missing_file_raises(
+    def test_missing_file_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
@@ -443,14 +541,16 @@ class TestEditLocal:
         agent = _MakeAgent(project_paths=("CONFIG.md",))
         output_dir = tmp_path / "out"
 
-        with pytest.raises(FileNotFoundError):
-            EditLocal(agent, output_dir)
+        content = _RunCapturingContent(lambda dm: EditLocal(dm, agent, output_dir))
 
+        assert content == _ExpectedError(
+            f"The configuration file '{output_dir / 'CONFIG.md'}' does not exist."
+        )
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_directory_path_raises(
+    def test_directory_path_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
@@ -460,14 +560,16 @@ class TestEditLocal:
         output_dir = tmp_path / "out"
         (output_dir / "CONFIG.md").mkdir(parents=True)
 
-        with pytest.raises(FileNotFoundError):
-            EditLocal(agent, output_dir)
+        content = _RunCapturingContent(lambda dm: EditLocal(dm, agent, output_dir))
 
+        assert content == _ExpectedError(
+            f"The configuration file '{output_dir / 'CONFIG.md'}' does not exist."
+        )
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_no_project_paths_raises(
+    def test_no_project_paths_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
@@ -475,9 +577,9 @@ class TestEditLocal:
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(project_paths=())
 
-        with pytest.raises(ValueError, match="does not define any configuration locations"):
-            EditLocal(agent, tmp_path)
+        content = _RunCapturingContent(lambda dm: EditLocal(dm, agent, tmp_path))
 
+        assert content == _ExpectedError("The agent does not define any configuration locations.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -489,13 +591,14 @@ class TestEditGlobal:
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         target = tmp_path / "CONFIG.md"
         target.write_text("content", encoding="utf-8")
         agent = _MakeAgent(global_paths=(str(target),))
 
-        EditGlobal(agent)
+        EditGlobal(dm, agent)
 
         run_spy.assert_called_once_with(["my-editor", str(target)], check=True)
         startfile_spy.assert_not_called()
@@ -506,6 +609,7 @@ class TestEditGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, _startfile_spy = launcher
         monkeypatch.setenv("VISUAL", "visual-editor")
@@ -513,7 +617,7 @@ class TestEditGlobal:
         target.write_text("content", encoding="utf-8")
         agent = _MakeAgent(global_paths=(str(target),))
 
-        EditGlobal(agent)
+        EditGlobal(dm, agent)
 
         run_spy.assert_called_once_with(["visual-editor", str(target)], check=True)
 
@@ -523,6 +627,7 @@ class TestEditGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.delenv("VISUAL", raising=False)
@@ -532,7 +637,7 @@ class TestEditGlobal:
         target.write_text("content", encoding="utf-8")
         agent = _MakeAgent(global_paths=(str(target),))
 
-        EditGlobal(agent)
+        EditGlobal(dm, agent)
 
         startfile_spy.assert_called_once_with(target)
         run_spy.assert_not_called()
@@ -543,6 +648,7 @@ class TestEditGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.delenv("VISUAL", raising=False)
@@ -552,7 +658,7 @@ class TestEditGlobal:
         target.write_text("content", encoding="utf-8")
         agent = _MakeAgent(global_paths=(str(target),))
 
-        EditGlobal(agent)
+        EditGlobal(dm, agent)
 
         run_spy.assert_called_once_with(["open", str(target)], check=True)
         startfile_spy.assert_not_called()
@@ -563,6 +669,7 @@ class TestEditGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.delenv("VISUAL", raising=False)
@@ -572,23 +679,24 @@ class TestEditGlobal:
         target.write_text("content", encoding="utf-8")
         agent = _MakeAgent(global_paths=(str(target),))
 
-        EditGlobal(agent)
+        EditGlobal(dm, agent)
 
         run_spy.assert_called_once_with(["xdg-open", str(target)], check=True)
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_missing_file_raises(
+    def test_missing_file_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
-        agent = _MakeAgent(global_paths=(str(tmp_path / "CONFIG.md"),))
+        target = tmp_path / "CONFIG.md"
+        agent = _MakeAgent(global_paths=(str(target),))
 
-        with pytest.raises(FileNotFoundError):
-            EditGlobal(agent)
+        content = _RunCapturingContent(lambda dm: EditGlobal(dm, agent))
 
+        assert content == _ExpectedError(f"The configuration file '{target}' does not exist.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -600,6 +708,7 @@ class TestEditLocalSkill:
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, _startfile_spy = launcher
         agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
@@ -608,12 +717,12 @@ class TestEditLocalSkill:
         skill_path.parent.mkdir(parents=True)
         skill_path.write_text("content", encoding="utf-8")
 
-        EditLocalSkill("my-skill", agent, output_dir)
+        EditLocalSkill(dm, "my-skill", agent, output_dir)
 
         run_spy.assert_called_once_with(["my-editor", str(skill_path)], check=True)
 
     # ----------------------------------------------------------------------
-    def test_unsupported_agent_raises(
+    def test_unsupported_agent_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
@@ -621,24 +730,27 @@ class TestEditLocalSkill:
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(project_skill_template=None)
 
-        with pytest.raises(ValueError, match="does not support skills"):
-            EditLocalSkill("my-skill", agent, tmp_path / "out")
+        content = _RunCapturingContent(lambda dm: EditLocalSkill(dm, "my-skill", agent, tmp_path / "out"))
 
+        assert content == _ExpectedError("The 'Stub' agent does not support skills.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_missing_file_raises(
+    def test_missing_file_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+        output_dir = tmp_path / "out"
 
-        with pytest.raises(FileNotFoundError, match="skill file"):
-            EditLocalSkill("my-skill", agent, tmp_path / "out")
+        content = _RunCapturingContent(lambda dm: EditLocalSkill(dm, "my-skill", agent, output_dir))
 
+        assert content == _ExpectedError(
+            f"The skill file '{output_dir / 'skills' / 'my-skill' / 'SKILL.md'}' does not exist."
+        )
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -651,6 +763,7 @@ class TestEditGlobalSkill:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         for var in ("HOME", "USERPROFILE", "APPDATA"):
@@ -660,27 +773,27 @@ class TestEditGlobalSkill:
         skill_path.parent.mkdir(parents=True)
         skill_path.write_text("content", encoding="utf-8")
 
-        EditGlobalSkill("my-skill", agent)
+        EditGlobalSkill(dm, "my-skill", agent)
 
         run_spy.assert_called_once_with(["my-editor", str(skill_path)], check=True)
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_unsupported_agent_raises(
+    def test_unsupported_agent_writes_error(
         self,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(global_skill_template=None)
 
-        with pytest.raises(ValueError, match="does not support skills"):
-            EditGlobalSkill("my-skill", agent)
+        content = _RunCapturingContent(lambda dm: EditGlobalSkill(dm, "my-skill", agent))
 
+        assert content == _ExpectedError("The 'Stub' agent does not support skills.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_missing_file_raises(
+    def test_missing_file_writes_error(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -691,9 +804,11 @@ class TestEditGlobalSkill:
             monkeypatch.setenv(var, str(tmp_path))
         agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
 
-        with pytest.raises(FileNotFoundError, match="skill file"):
-            EditGlobalSkill("my-skill", agent)
+        content = _RunCapturingContent(lambda dm: EditGlobalSkill(dm, "my-skill", agent))
 
+        assert content == _ExpectedError(
+            f"The skill file '{tmp_path / 'skills' / 'my-skill' / 'SKILL.md'}' does not exist."
+        )
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -706,6 +821,7 @@ class TestBrowseGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "win32")
@@ -713,7 +829,7 @@ class TestBrowseGlobal:
         target.parent.mkdir()
         agent = _MakeAgent(global_paths=(str(target),))
 
-        BrowseGlobal(agent)
+        BrowseGlobal(dm, agent)
 
         startfile_spy.assert_called_once_with(target.parent)
         run_spy.assert_not_called()
@@ -724,6 +840,7 @@ class TestBrowseGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "darwin")
@@ -731,7 +848,7 @@ class TestBrowseGlobal:
         target.parent.mkdir()
         agent = _MakeAgent(global_paths=(str(target),))
 
-        BrowseGlobal(agent)
+        BrowseGlobal(dm, agent)
 
         run_spy.assert_called_once_with(["open", str(target.parent)], check=True)
         startfile_spy.assert_not_called()
@@ -742,6 +859,7 @@ class TestBrowseGlobal:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "linux")
@@ -749,13 +867,13 @@ class TestBrowseGlobal:
         target.parent.mkdir()
         agent = _MakeAgent(global_paths=(str(target),))
 
-        BrowseGlobal(agent)
+        BrowseGlobal(dm, agent)
 
         run_spy.assert_called_once_with(["xdg-open", str(target.parent)], check=True)
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_missing_directory_raises(
+    def test_missing_directory_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
@@ -763,23 +881,25 @@ class TestBrowseGlobal:
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(global_paths=(str(tmp_path / "config" / "CONFIG.md"),))
 
-        with pytest.raises(FileNotFoundError):
-            BrowseGlobal(agent)
+        content = _RunCapturingContent(lambda dm: BrowseGlobal(dm, agent))
 
+        assert content == _ExpectedError(
+            f"The configuration directory '{tmp_path / 'config'}' does not exist."
+        )
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_no_global_paths_raises(
+    def test_no_global_paths_writes_error(
         self,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(global_paths=())
 
-        with pytest.raises(ValueError, match="does not define any configuration locations"):
-            BrowseGlobal(agent)
+        content = _RunCapturingContent(lambda dm: BrowseGlobal(dm, agent))
 
+        assert content == _ExpectedError("The agent does not define any configuration locations.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -792,6 +912,7 @@ class TestBrowseGlobalSkills:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "win32")
@@ -799,7 +920,7 @@ class TestBrowseGlobalSkills:
         skills_root.mkdir()
         agent = _MakeAgent(global_skills_root=str(skills_root))
 
-        BrowseGlobalSkills(agent)
+        BrowseGlobalSkills(dm, agent)
 
         startfile_spy.assert_called_once_with(skills_root)
         run_spy.assert_not_called()
@@ -810,6 +931,7 @@ class TestBrowseGlobalSkills:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "darwin")
@@ -817,7 +939,7 @@ class TestBrowseGlobalSkills:
         skills_root.mkdir()
         agent = _MakeAgent(global_skills_root=str(skills_root))
 
-        BrowseGlobalSkills(agent)
+        BrowseGlobalSkills(dm, agent)
 
         run_spy.assert_called_once_with(["open", str(skills_root)], check=True)
         startfile_spy.assert_not_called()
@@ -828,6 +950,7 @@ class TestBrowseGlobalSkills:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "linux")
@@ -835,37 +958,38 @@ class TestBrowseGlobalSkills:
         skills_root.mkdir()
         agent = _MakeAgent(global_skills_root=str(skills_root))
 
-        BrowseGlobalSkills(agent)
+        BrowseGlobalSkills(dm, agent)
 
         run_spy.assert_called_once_with(["xdg-open", str(skills_root)], check=True)
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_unsupported_agent_raises(
+    def test_unsupported_agent_writes_error(
         self,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(global_skills_root=None)
 
-        with pytest.raises(ValueError, match="does not support skills"):
-            BrowseGlobalSkills(agent)
+        content = _RunCapturingContent(lambda dm: BrowseGlobalSkills(dm, agent))
 
+        assert content == _ExpectedError("The 'Stub' agent does not support skills.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_missing_directory_raises(
+    def test_missing_directory_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
-        agent = _MakeAgent(global_skills_root=str(tmp_path / "skills"))
+        skills_root = tmp_path / "skills"
+        agent = _MakeAgent(global_skills_root=str(skills_root))
 
-        with pytest.raises(FileNotFoundError, match="skills directory"):
-            BrowseGlobalSkills(agent)
+        content = _RunCapturingContent(lambda dm: BrowseGlobalSkills(dm, agent))
 
+        assert content == _ExpectedError(f"The skills directory '{skills_root}' does not exist.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
@@ -878,6 +1002,7 @@ class TestBrowseLocalSkills:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "win32")
@@ -885,7 +1010,7 @@ class TestBrowseLocalSkills:
         output_dir = tmp_path / "out"
         (output_dir / "skills").mkdir(parents=True)
 
-        BrowseLocalSkills(agent, output_dir)
+        BrowseLocalSkills(dm, agent, output_dir)
 
         startfile_spy.assert_called_once_with(output_dir / "skills")
         run_spy.assert_not_called()
@@ -896,6 +1021,7 @@ class TestBrowseLocalSkills:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
         launcher: tuple[MagicMock, MagicMock],
+        dm: DoneManager,
     ):
         run_spy, startfile_spy = launcher
         monkeypatch.setattr(lib_module.sys, "platform", "linux")
@@ -903,13 +1029,13 @@ class TestBrowseLocalSkills:
         output_dir = tmp_path / "out"
         (output_dir / "skills").mkdir(parents=True)
 
-        BrowseLocalSkills(agent, output_dir)
+        BrowseLocalSkills(dm, agent, output_dir)
 
         run_spy.assert_called_once_with(["xdg-open", str(output_dir / "skills")], check=True)
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_unsupported_agent_raises(
+    def test_unsupported_agent_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
@@ -917,23 +1043,24 @@ class TestBrowseLocalSkills:
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(project_skills_root=None)
 
-        with pytest.raises(ValueError, match="does not support skills"):
-            BrowseLocalSkills(agent, tmp_path / "out")
+        content = _RunCapturingContent(lambda dm: BrowseLocalSkills(dm, agent, tmp_path / "out"))
 
+        assert content == _ExpectedError("The 'Stub' agent does not support skills.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_missing_directory_raises(
+    def test_missing_directory_writes_error(
         self,
         tmp_path: Path,
         launcher: tuple[MagicMock, MagicMock],
     ):
         run_spy, startfile_spy = launcher
         agent = _MakeAgent(project_skills_root="skills")
+        output_dir = tmp_path / "out"
 
-        with pytest.raises(FileNotFoundError, match="skills directory"):
-            BrowseLocalSkills(agent, tmp_path / "out")
+        content = _RunCapturingContent(lambda dm: BrowseLocalSkills(dm, agent, output_dir))
 
+        assert content == _ExpectedError(f"The skills directory '{output_dir / 'skills'}' does not exist.")
         run_spy.assert_not_called()
         startfile_spy.assert_not_called()

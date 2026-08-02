@@ -137,7 +137,7 @@ class TestDispatch:
         assert result.exit_code == 0, result.output
         render_global.assert_called_once()
         render_local.assert_not_called()
-        assert isinstance(render_global.call_args.args[1], agent_cls)
+        assert isinstance(render_global.call_args.args[2], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_renders_global(
@@ -153,7 +153,7 @@ class TestDispatch:
         render_global.assert_called_once()
         render_local.assert_not_called()
 
-        passed_template = render_global.call_args.args[0]
+        passed_template = render_global.call_args.args[1]
         assert Path(passed_template).resolve() == template.resolve()
 
     # ----------------------------------------------------------------------
@@ -175,7 +175,7 @@ class TestDispatch:
         render_local.assert_called_once()
         render_global.assert_not_called()
 
-        passed_template, _agent, passed_output_dir = render_local.call_args.args
+        _dm, passed_template, _agent, passed_output_dir = render_local.call_args.args
         assert Path(passed_template).resolve() == template.resolve()
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
@@ -206,7 +206,7 @@ class TestRenderSkillDispatch:
         assert result.exit_code == 0, result.output
         render_global_skill.assert_called_once()
         render_local_skill.assert_not_called()
-        assert isinstance(render_global_skill.call_args.args[1], agent_cls)
+        assert isinstance(render_global_skill.call_args.args[2], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_renders_global(
@@ -222,7 +222,7 @@ class TestRenderSkillDispatch:
         render_global_skill.assert_called_once()
         render_local_skill.assert_not_called()
 
-        passed_template = render_global_skill.call_args.args[0]
+        passed_template = render_global_skill.call_args.args[1]
         assert Path(passed_template).resolve() == template.resolve()
 
     # ----------------------------------------------------------------------
@@ -244,7 +244,7 @@ class TestRenderSkillDispatch:
         render_local_skill.assert_called_once()
         render_global_skill.assert_not_called()
 
-        passed_template, _agent, passed_output_dir = render_local_skill.call_args.args
+        _dm, passed_template, _agent, passed_output_dir = render_local_skill.call_args.args
         assert Path(passed_template).resolve() == template.resolve()
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
@@ -332,7 +332,7 @@ class TestEditDispatch:
         assert result.exit_code == 0, result.output
         edit_global.assert_called_once()
         edit_local.assert_not_called()
-        assert isinstance(edit_global.call_args.args[0], agent_cls)
+        assert isinstance(edit_global.call_args.args[1], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_edits_global(
@@ -362,7 +362,7 @@ class TestEditDispatch:
         edit_local.assert_called_once()
         edit_global.assert_not_called()
 
-        _agent, passed_output_dir = edit_local.call_args.args
+        _dm, _agent, passed_output_dir = edit_local.call_args.args
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
     # ----------------------------------------------------------------------
@@ -417,7 +417,7 @@ class TestEditSkillDispatch:
         assert result.exit_code == 0, result.output
         edit_global_skill.assert_called_once()
         edit_local_skill.assert_not_called()
-        assert isinstance(edit_global_skill.call_args.args[1], agent_cls)
+        assert isinstance(edit_global_skill.call_args.args[2], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_edits_global(
@@ -432,7 +432,7 @@ class TestEditSkillDispatch:
         edit_global_skill.assert_called_once()
         edit_local_skill.assert_not_called()
 
-        passed_skill_name = edit_global_skill.call_args.args[0]
+        passed_skill_name = edit_global_skill.call_args.args[1]
         assert passed_skill_name == "my-skill"
 
     # ----------------------------------------------------------------------
@@ -450,7 +450,7 @@ class TestEditSkillDispatch:
         edit_local_skill.assert_called_once()
         edit_global_skill.assert_not_called()
 
-        passed_skill_name, _agent, passed_output_dir = edit_local_skill.call_args.args
+        _dm, passed_skill_name, _agent, passed_output_dir = edit_local_skill.call_args.args
         assert passed_skill_name == "my-skill"
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
@@ -516,7 +516,7 @@ class TestBrowseDispatch:
 
         assert result.exit_code == 0, result.output
         browse_spy.assert_called_once()
-        assert isinstance(browse_spy.call_args.args[0], agent_cls)
+        assert isinstance(browse_spy.call_args.args[1], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_unknown_agent_fails(
@@ -564,7 +564,7 @@ class TestBrowseSkillsDispatch:
         assert result.exit_code == 0, result.output
         browse_global_skills.assert_called_once()
         browse_local_skills.assert_not_called()
-        assert isinstance(browse_global_skills.call_args.args[0], agent_cls)
+        assert isinstance(browse_global_skills.call_args.args[1], agent_cls)
 
     # ----------------------------------------------------------------------
     def test_no_output_dir_browses_global(
@@ -594,7 +594,7 @@ class TestBrowseSkillsDispatch:
         browse_local_skills.assert_called_once()
         browse_global_skills.assert_not_called()
 
-        _agent, passed_output_dir = browse_local_skills.call_args.args
+        _dm, _agent, passed_output_dir = browse_local_skills.call_args.args
         assert Path(passed_output_dir).resolve() == output_dir.resolve()
 
     # ----------------------------------------------------------------------
