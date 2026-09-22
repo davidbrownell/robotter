@@ -23,6 +23,7 @@
     - [Example Configuration](#example-configuration)
   - [Rendering a skill](#rendering-a-skill)
     - [Example Skill](#example-skill)
+    - [Skill Template Directories](#skill-template-directories)
   - [Editing an agent's configuration](#editing-an-agents-configuration)
   - [Editing a skill](#editing-a-skill)
   - [Browsing an agent's global configuration](#browsing-an-agents-global-configuration)
@@ -146,18 +147,18 @@ uvx robotter render_skill <template> <agent> [<dir>] [--verbose] [--debug]
 
 | Argument / Option | Description |
 | --- | --- |
-| `<template>` | Path to the skill template file to render. |
+| `<template>` | Path to the skill template file to render, or to a [skill template directory](#skill-template-directories) whose files are each rendered into a skill named after the directory. |
 | `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
 
-The skill name is taken from the template's frontmatter `name` attribute (required); the rendered output is written to the per-skill location derived from that name (see the table in the [Overview](#overview) above). Not every agent supports skills; `render_skill` fails for an agent that does not.
+When `<template>` is a file, the skill name is taken from its frontmatter `name` attribute (required); the rendered output is written to the per-skill location derived from that name (see the table in the [Overview](#overview) above). When `<template>` is a directory, the directory name is the skill name and frontmatter is not consulted for it — see [Skill template directories](#skill-template-directories) below. Not every agent supports skills; `render_skill` fails for an agent that does not.
 
 #### Example Skill
-A skill template is a [Jinja2](https://jinja.palletsprojects.com/) template with [YAML](https://yaml.org/) frontmatter that must include a `name` attribute; that name determines the per-skill location the rendered output is written to. Like a configuration template, a skill template may compose shared content via `include_configuration("<relative path>")`.
+A single-file skill template is a [Jinja2](https://jinja.palletsprojects.com/) template with [YAML](https://yaml.org/) frontmatter that must include a `name` attribute; that name determines the per-skill location the rendered output is written to. Like a configuration template, a skill template may compose shared content via `include_configuration("<relative path>")`.
 
-The following `review_skill.md` skill template declares its name in frontmatter and reuses the shared `shared/coding-standards.md` file from the [Example Configuration](#example-configuration) above. Note that the template filename (`review_skill.md`) and the `name` attribute (`review`) are independent — the rendered output location is derived from `name`, not the filename:
+The following `review_skill.md` skill template declares its name in frontmatter and reuses the shared `shared/coding-standards.md` file from the [Example Configuration](#example-configuration) above. Note that the template filename (`review_skill.md`) and the `name` attribute (`review`) are independent — for a single-file template the rendered output location is derived from `name`, not the filename:
 
 ```jinja
 ---
@@ -201,6 +202,50 @@ Render `review_skill.md` to the project-level Claude Code skill under `./my-proj
 uvx robotter render_skill review_skill.md claude-code ./my-project
 ```
 
+#### Skill Template Directories
+A skill that needs supporting files — additional instructions, scripts, data — can be authored as a directory instead of a single file. Pass the directory as `<template>` and every file beneath it is written into one skill named after the directory:
+
+```
+review/
+├── SKILL.md
+├── reference.md
+└── scripts/
+    └── check.py
+```
+
+Rendering that directory for Claude Code produces `~/.claude/skills/review/SKILL.md`, `~/.claude/skills/review/reference.md`, and `~/.claude/skills/review/scripts/check.py`. The nested structure is preserved.
+
+Directory templates differ from single-file templates in the following ways:
+
+| | Single file | Directory |
+| --- | --- | --- |
+| Skill name | The frontmatter `name` attribute (required) | The directory name; frontmatter is not consulted for the name |
+| Files written | One | Every file beneath the directory, recursively |
+| Required content | — | Must contain `SKILL.md` at its top level |
+
+Files ending in `.md` or `.markdown` are rendered as Jinja2 templates, with frontmatter preserved exactly as it is for a single-file template. Every other file is copied verbatim, so images, scripts, and data files are never corrupted by Jinja processing or by having a leading `---` consumed as frontmatter.
+
+All files are rendered before any file is written, so a malformed template fails without leaving a partially installed skill behind. A failure during the writes themselves (a permission error, a full disk) can still leave the skill incomplete.
+
+`render_skill` fails, writing nothing, when the directory is empty, when it does not contain a top-level `SKILL.md`, or when the directory name is not a valid skill name.
+
+> [!NOTE]
+> On Windows, the `SKILL.md` requirement is satisfied case-insensitively because the filesystem is, so a directory containing only `skill.md` is accepted there and rejected on Linux and macOS. Name the file `SKILL.md` exactly; agents that load skills look for that spelling.
+
+**Examples**
+
+Render the `review/` directory to the current user's global Claude Code skill location (`~/.claude/skills/review/`):
+
+```shell
+uvx robotter render_skill review claude-code
+```
+
+Render the `review/` directory to the project-level Claude Code skill under `./my-project` (`./my-project/.claude/skills/review/`):
+
+```shell
+uvx robotter render_skill review claude-code ./my-project
+```
+
 ### Editing an agent's configuration
 Open an agent's rendered configuration file in an editor:
 
@@ -240,7 +285,7 @@ uvx robotter edit_skill <name> <agent> [<dir>] [--verbose] [--debug]
 
 | Argument / Option | Description |
 | --- | --- |
-| `<name>` | Name of the skill to edit (the same name declared in the skill template's frontmatter). |
+| `<name>` | Name of the skill to edit (for a single-file template, the name declared in its frontmatter; for a [skill template directory](#skill-template-directories), the directory name). |
 | `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Edit the project-level skill under this directory. When omitted, the global (user-level) skill is edited. |
 | `--verbose` | Write verbose information to the terminal. |

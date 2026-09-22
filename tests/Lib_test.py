@@ -8,6 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from jinja2 import TemplateSyntaxError
+
 from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
 
@@ -416,6 +418,343 @@ class TestRenderGlobalSkill:
         assert content == _ExpectedError(
             f"The skill template '{template_path}' does not have a 'name' frontmatter attribute."
         )
+
+
+# ----------------------------------------------------------------------
+def _MakeNestedSkillAgent(*, supports_skills: bool = True) -> Agent:
+    """Create an `Agent` that stores each skill in its own directory beneath a skills root.
+
+    This is the layout every shipped agent uses, and the only one for which a skill owns a
+    directory that supporting files can be written into.
+    """
+
+    if not supports_skills:
+        return _MakeAgent()
+
+    return _MakeAgent(
+        global_skill_template="~/skills/{skill_name}/SKILL.md",
+        project_skill_template="skills/{skill_name}/SKILL.md",
+        global_skills_root="~/skills",
+        project_skills_root="skills",
+    )
+
+
+# ----------------------------------------------------------------------
+@pytest.fixture
+def skill_dir(tmp_path: Path):
+    """Factory fixture that writes files into a skill template directory and returns its path."""
+
+    def _create(files: dict[str, str], skill_name: str = "my-skill") -> Path:
+        root = tmp_path / "templates" / skill_name
+
+        for relative_path, content in files.items():
+            file = root / relative_path
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(content, encoding="utf-8")
+
+        return root
+
+    return _create
+
+
+# ----------------------------------------------------------------------
+class TestRenderLocalSkillDirectory:
+    # ----------------------------------------------------------------------
+    def test_writes_every_file_under_skill_named_by_directory(
+        self, skill_dir, tmp_path: Path, dm: DoneManager
+    ):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        RenderLocalSkill(dm, skill_dir({"SKILL.md": "Body", "reference.md": "Reference"}), agent, output_dir)
+
+        destination = output_dir / "skills" / "my-skill"
+
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body"
+        assert destination.joinpath("reference.md").read_text(encoding="utf-8") == "Reference"
+
+    # ----------------------------------------------------------------------
+    def test_renders_each_file_as_a_template(self, skill_dir, tmp_path: Path, dm: DoneManager):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        RenderLocalSkill(
+            dm,
+            skill_dir({"SKILL.md": "Body: {{ 2 + 2 }}", "reference.md": "Reference: {{ 3 * 3 }}"}),
+            agent,
+            output_dir,
+        )
+
+        destination = output_dir / "skills" / "my-skill"
+
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body: 4"
+        assert destination.joinpath("reference.md").read_text(encoding="utf-8") == "Reference: 9"
+
+    # ----------------------------------------------------------------------
+    def test_preserves_frontmatter_of_each_file(self, skill_dir, tmp_path: Path, dm: DoneManager):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        RenderLocalSkill(
+            dm,
+            skill_dir(
+                {
+                    "SKILL.md": dedent("""\
+                        ---
+                        name: ignored-name
+                        ---
+                        Body: {{ 1 + 1 }}"""),
+                },
+            ),
+            agent,
+            output_dir,
+        )
+
+        assert (output_dir / "skills" / "my-skill" / "SKILL.md").read_text(encoding="utf-8") == dedent("""\
+            ---
+            name: ignored-name
+            ---
+            Body: 2""")
+
+    # ----------------------------------------------------------------------
+    def test_preserves_nested_directory_structure(self, skill_dir, tmp_path: Path, dm: DoneManager):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        RenderLocalSkill(
+            dm,
+            skill_dir({"SKILL.md": "Body", "scripts/run.py": "value = {{ 5 }}"}),
+            agent,
+            output_dir,
+        )
+
+        destination = output_dir / "skills" / "my-skill"
+
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body"
+
+        # `run.py` is not a template, so its Jinja-like content is preserved verbatim.
+        assert destination.joinpath("scripts", "run.py").read_text(encoding="utf-8") == "value = {{ 5 }}"
+
+    # ----------------------------------------------------------------------
+    def test_directory_name_determines_skill_name(self, skill_dir, tmp_path: Path, dm: DoneManager):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        RenderLocalSkill(
+            dm,
+            skill_dir(
+                {
+                    "SKILL.md": dedent("""\
+                        ---
+                        name: frontmatter-name
+                        ---
+                        Body"""),
+                },
+                skill_name="directory-name",
+            ),
+            agent,
+            output_dir,
+        )
+
+        assert (output_dir / "skills" / "directory-name" / "SKILL.md").is_file()
+        assert not (output_dir / "skills" / "frontmatter-name").exists()
+
+    # ----------------------------------------------------------------------
+    def test_writes_each_written_file_to_the_done_manager(self, skill_dir, tmp_path: Path):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+        template_path = skill_dir({"SKILL.md": "Body", "reference.md": "Reference"})
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        destination = output_dir / "skills" / "my-skill"
+
+        assert content == dedent(f"""\
+            Heading...
+              Writing '{destination / "SKILL.md"}'...DONE! (0, <scrubbed duration>)
+              Writing '{destination / "reference.md"}'...DONE! (0, <scrubbed duration>)
+            DONE! (0, <scrubbed duration>)
+            """)
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_writes_error(self, skill_dir, tmp_path: Path):
+        agent = _MakeNestedSkillAgent(supports_skills=False)
+        output_dir = tmp_path / "out"
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError("The 'Stub' agent does not support skills.")
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_empty_directory_writes_error(self, tmp_path: Path):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+        template_path = tmp_path / "templates" / "my-skill"
+        template_path.mkdir(parents=True)
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError(f"The skill template directory '{template_path}' is empty.")
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_invalid_directory_name_writes_error(self, tmp_path: Path):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        templates = tmp_path / "templates"
+        templates.mkdir(parents=True)
+        (tmp_path / "escaped.md").write_text("Escaped", encoding="utf-8")
+
+        # A directory whose name is '..' would otherwise resolve to a destination outside of the
+        # agent's skills root.
+        template_path = Path(str(templates)) / ".."
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError("Invalid skill name '..'.")
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_flat_layout_agent_writes_error(self, skill_dir, tmp_path: Path):
+        # This agent stores each skill as a single file directly in the skills root, so a skill
+        # owns no directory of its own; writing the template's files would put them in the root
+        # shared by every skill.
+        agent = _MakeAgent(
+            project_skill_template="skills/{skill_name}.md",
+            project_skills_root="skills",
+        )
+        output_dir = tmp_path / "out"
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError(
+            f"The 'Stub' agent stores each skill as a single file, so it cannot render the skill template directory '{template_path}'."
+        )
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_missing_skill_file_writes_error(self, skill_dir, tmp_path: Path):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        # Without `SKILL.md` the installed directory is not a skill the agent can load.
+        template_path = skill_dir({"reference.md": "Reference"})
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError(
+            f"The skill template directory '{template_path}' does not contain 'SKILL.md'."
+        )
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_nested_skill_file_does_not_satisfy_the_requirement(self, skill_dir, tmp_path: Path):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        # `SKILL.md` must sit at the root of the template directory; one nested beneath it lands
+        # somewhere the agent does not read.
+        template_path = skill_dir({"nested/SKILL.md": "Body"})
+
+        content = _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert content == _ExpectedError(
+            f"The skill template directory '{template_path}' does not contain 'SKILL.md'."
+        )
+        assert not output_dir.exists()
+
+    # ----------------------------------------------------------------------
+    def test_copies_non_template_files_verbatim(self, skill_dir, tmp_path: Path, dm: DoneManager):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        template_path = skill_dir({"SKILL.md": "Body: {{ 1 + 1 }}"})
+
+        # Files that are not templates must survive unchanged, even when their content would
+        # otherwise be consumed by Jinja or by frontmatter extraction.
+        (template_path / "script.js").write_text("// {{ not_a_template }}", encoding="utf-8")
+        (template_path / "data.yaml").write_text("---\nkey: value\n", encoding="utf-8")
+        (template_path / "invalid.hbs").write_text("{% not_a_jinja_tag %}", encoding="utf-8")
+
+        RenderLocalSkill(dm, template_path, agent, output_dir)
+
+        destination = output_dir / "skills" / "my-skill"
+
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body: 2"
+        assert destination.joinpath("script.js").read_text(encoding="utf-8") == "// {{ not_a_template }}"
+        assert destination.joinpath("data.yaml").read_text(encoding="utf-8") == "---\nkey: value\n"
+        assert destination.joinpath("invalid.hbs").read_text(encoding="utf-8") == "{% not_a_jinja_tag %}"
+
+    # ----------------------------------------------------------------------
+    def test_copies_binary_files_byte_for_byte(self, skill_dir, tmp_path: Path, dm: DoneManager):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        # Binary assets are not decodable as UTF-8, so rendering them would fail outright.
+        payload = bytes(range(256))
+        (template_path / "logo.png").write_bytes(payload)
+
+        RenderLocalSkill(dm, template_path, agent, output_dir)
+
+        assert (output_dir / "skills" / "my-skill" / "logo.png").read_bytes() == payload
+
+    # ----------------------------------------------------------------------
+    def test_render_failure_writes_nothing(self, skill_dir, tmp_path: Path):
+        agent = _MakeNestedSkillAgent()
+        output_dir = tmp_path / "out"
+
+        # `zzz.md` sorts after `aaa.md`, so a naive implementation would write `aaa.md` before
+        # failing and leave a partially installed skill behind.
+        template_path = skill_dir(
+            {"aaa.md": "Valid", "SKILL.md": "Body", "zzz.md": "{% not_a_jinja_tag %}"},
+        )
+
+        with pytest.raises(TemplateSyntaxError):
+            _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
+
+        assert not output_dir.exists()
+
+
+# ----------------------------------------------------------------------
+class TestRenderGlobalSkillDirectory:
+    # ----------------------------------------------------------------------
+    def test_writes_every_file_under_skill_named_by_directory(
+        self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+
+        RenderGlobalSkill(
+            dm,
+            skill_dir({"SKILL.md": "Body: {{ 1 + 1 }}", "reference.md": "Reference"}),
+            agent,
+        )
+
+        destination = tmp_path / "skills" / "my-skill"
+
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body: 2"
+        assert destination.joinpath("reference.md").read_text(encoding="utf-8") == "Reference"
+
+    # ----------------------------------------------------------------------
+    def test_unsupported_agent_writes_error(self, skill_dir, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent(supports_skills=False)
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        assert content == _ExpectedError("The 'Stub' agent does not support skills.")
+        assert not (tmp_path / "skills").exists()
 
 
 # ----------------------------------------------------------------------
