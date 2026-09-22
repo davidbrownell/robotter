@@ -11,11 +11,11 @@ class TestClaudeCode(AgentTestBase):
     agent_type = ClaudeCode
     expected_name = "Claude Code"
     global_template = {
-        OperatingSystem.Windows: r"%USERPROFILE%\.claude\CLAUDE.md",
-        OperatingSystem.MacOS: "~/.claude/CLAUDE.md",
-        OperatingSystem.Linux: "~/.claude/CLAUDE.md",
+        OperatingSystem.Windows: r"%USERPROFILE%\.claude\AGENTS.md",
+        OperatingSystem.MacOS: "~/.claude/AGENTS.md",
+        OperatingSystem.Linux: "~/.claude/AGENTS.md",
     }
-    project_path = "CLAUDE.md"
+    project_path = "AGENTS.md"
     global_skill_templates = {
         OperatingSystem.Windows: r"%USERPROFILE%\.claude\skills\my-skill\SKILL.md",
         OperatingSystem.MacOS: "~/.claude/skills/my-skill/SKILL.md",

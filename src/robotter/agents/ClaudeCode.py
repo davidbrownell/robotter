@@ -17,7 +17,7 @@ class ClaudeCode(AgentImpl):
     @classmethod
     @override
     def _GetGlobalConfigurationFilename(cls, operating_system: OperatingSystem) -> Path:
-        return cls._GetHomeRoot(operating_system) / ".claude" / "CLAUDE.md"
+        return cls._GetHomeRoot(operating_system) / ".claude" / "AGENTS.md"
 
     # ----------------------------------------------------------------------
     @staticmethod

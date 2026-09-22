@@ -39,7 +39,7 @@ Different agents read their configuration from different locations under differe
 
 | Agent | Value | Project Configuration | Global Configuration |
 | --- | --- | --- | --- |
-| Claude Code | `claude-code` | `CLAUDE.md` | `~/.claude/CLAUDE.md` |
+| Claude Code | `claude-code` | `AGENTS.md` | `~/.claude/AGENTS.md` |
 | Cline | `cline` | `.clinerules/main.md` | `~/Documents/Cline/Rules/main.md` |
 | Cursor | `cursor` | `.cursor/rules/main.mdc` | `~/.cursor/rules/main.mdc` |
 | Gemini CLI | `gemini-cli` | `GEMINI.md` | `~/.gemini/GEMINI.md` |

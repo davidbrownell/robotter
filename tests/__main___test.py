@@ -737,4 +737,4 @@ class TestIntegration:
         )
 
         assert result.exit_code == 0, result.output
-        assert (output_dir / "CLAUDE.md").read_text(encoding="utf-8") == "Value: 3"
+        assert (output_dir / "AGENTS.md").read_text(encoding="utf-8") == "Value: 3"
