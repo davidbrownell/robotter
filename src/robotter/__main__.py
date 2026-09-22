@@ -133,9 +133,8 @@ def RenderSkill(
         Path,
         typer.Argument(
             exists=True,
-            dir_okay=False,
             resolve_path=True,
-            help="Skill template file to render.",
+            help="Skill template file to render, or a directory whose files are each rendered into a skill named after the directory.",
         ),
     ],
     agent: Annotated[
@@ -161,7 +160,7 @@ def RenderSkill(
         typer.Option("--debug", help="Write debug information to the terminal."),
     ] = False,
 ) -> None:
-    """Render a skill template to the skill location of an AI agent."""
+    """Render a skill template file or directory to the skill location of an AI agent."""
 
     with DoneManager.CreateCommandLine(
         flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),

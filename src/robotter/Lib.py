@@ -13,11 +13,18 @@ from jinja2 import Environment
 from robotter.Renderer import Parse
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from dbrownell_Common.Streams.DoneManager import DoneManager
 
     from robotter.agents.Agent import Agent
+
+
+# ----------------------------------------------------------------------
+# File extensions treated as Jinja templates when rendering a skill directory; every other file is
+# copied verbatim.
+_TEMPLATE_SUFFIXES: frozenset[str] = frozenset({".md", ".markdown"})
 
 
 # ----------------------------------------------------------------------
@@ -36,36 +43,28 @@ def RenderLocal(dm: DoneManager, template: Path, agent: Agent, output_dir: Path)
 
 # ----------------------------------------------------------------------
 def RenderGlobalSkill(dm: DoneManager, template: Path, agent: Agent) -> None:
-    """Render the skill `template` and write it to `agent`'s global skill location."""
+    """Render the skill `template` (a file or a directory) to `agent`'s global skill location."""
 
-    frontmatter, content = _RenderContent(template)
-    skill_name = _ExtractSkillName(dm, template, frontmatter)
-    if skill_name is None:
-        return
-
-    path = agent.GetGlobalSkillPath(skill_name)
-    if path is None:
-        dm.WriteError(_SkillsUnsupportedMessage(agent))
-        return
-
-    _WriteFile(dm, path, content)
+    _RenderSkill(
+        dm,
+        template,
+        agent,
+        agent.GetGlobalSkillPath,
+        agent.GetGlobalSkillDirectory,
+    )
 
 
 # ----------------------------------------------------------------------
 def RenderLocalSkill(dm: DoneManager, template: Path, agent: Agent, output_dir: Path) -> None:
-    """Render the skill `template` and write it to `agent`'s project skill location under `output_dir`."""
+    """Render the skill `template` (a file or a directory) to `agent`'s project skill location under `output_dir`."""
 
-    frontmatter, content = _RenderContent(template)
-    skill_name = _ExtractSkillName(dm, template, frontmatter)
-    if skill_name is None:
-        return
-
-    path = agent.GetProjectSkillPath(skill_name, output_dir)
-    if path is None:
-        dm.WriteError(_SkillsUnsupportedMessage(agent))
-        return
-
-    _WriteFile(dm, path, content)
+    _RenderSkill(
+        dm,
+        template,
+        agent,
+        lambda skill_name: agent.GetProjectSkillPath(skill_name, output_dir),
+        lambda skill_name: agent.GetProjectSkillDirectory(skill_name, output_dir),
+    )
 
 
 # ----------------------------------------------------------------------
@@ -153,6 +152,126 @@ def _Render(dm: DoneManager, template: Path, path: Path) -> None:
 
 
 # ----------------------------------------------------------------------
+def _RenderSkill(
+    dm: DoneManager,
+    template: Path,
+    agent: Agent,
+    get_skill_path: Callable[[str], Path | None],
+    get_skill_directory: Callable[[str], Path | None],
+) -> None:
+    """Render a skill template file or directory to the location produced by `get_skill_path`."""
+
+    if template.is_dir():
+        _RenderSkillDirectory(dm, template, agent, get_skill_path, get_skill_directory)
+        return
+
+    frontmatter, content = _RenderContent(template)
+
+    skill_name = _ExtractSkillName(dm, template, frontmatter)
+    if skill_name is None:
+        return
+
+    path = _ResolveSkillPath(dm, skill_name, agent, get_skill_path)
+    if path is None:
+        return
+
+    _WriteFile(dm, path, content)
+
+
+# ----------------------------------------------------------------------
+def _RenderSkillDirectory(
+    dm: DoneManager,
+    template: Path,
+    agent: Agent,
+    get_skill_path: Callable[[str], Path | None],
+    get_skill_directory: Callable[[str], Path | None],
+) -> None:
+    """Render every file under the `template` directory into a skill directory named after `template`."""
+
+    # The directory name identifies the skill, so frontmatter is not consulted for it. Resolving
+    # the skill's own file locates the destination, ensuring the name is validated exactly as it is
+    # for a single-file template rather than being joined onto the skills root unchecked.
+    skill_path = _ResolveSkillPath(dm, template.name, agent, get_skill_path)
+    if skill_path is None:
+        return
+
+    # The agent decides which directory a skill owns. Deriving it here (for example, from the
+    # skill file's parent) would write into the shared skills root for agents that store a skill
+    # as a single file, letting one skill overwrite another's.
+    destination_root = get_skill_directory(template.name)
+    if destination_root is None:
+        dm.WriteError(
+            f"The '{agent.name}' agent stores each skill as a single file, so it cannot render the skill template directory '{template}'.",
+        )
+        return
+
+    # `Path` comparisons fold case on Windows but not on POSIX, so sorting the paths themselves
+    # would order the writes differently per platform. Sorting on the relative path's parts keeps
+    # the order stable everywhere.
+    sources = sorted(
+        (source for source in template.rglob("*") if source.is_file()),
+        key=lambda source: source.relative_to(template).parts,
+    )
+
+    if not sources:
+        dm.WriteError(f"The skill template directory '{template}' is empty.")
+        return
+
+    if skill_path not in {destination_root / source.relative_to(template) for source in sources}:
+        dm.WriteError(
+            f"The skill template directory '{template}' does not contain '{skill_path.name}'.",
+        )
+        return
+
+    # Render everything before writing anything so that a malformed template does not leave a
+    # partially installed skill behind. Writes themselves are not staged, so a failure while
+    # writing (a permission error, a full disk) can still leave the skill incomplete.
+    destinations = [
+        (destination_root / source.relative_to(template), _RenderSkillSource(source)) for source in sources
+    ]
+
+    for destination, content in destinations:
+        _WriteFile(dm, destination, content)
+
+
+# ----------------------------------------------------------------------
+def _RenderSkillSource(source: Path) -> str | bytes:
+    """Render `source` as a template, or return its raw bytes when it is not a template."""
+
+    # Skill directories carry supporting assets (images, scripts, data files) alongside their
+    # templates. Rendering those would corrupt them (Jinja constructs are stripped, leading `---`
+    # is consumed as frontmatter) or fail outright, so only template files are rendered.
+    if source.suffix.lower() not in _TEMPLATE_SUFFIXES:
+        return source.read_bytes()
+
+    _, content = _RenderContent(source)
+
+    return content
+
+
+# ----------------------------------------------------------------------
+def _ResolveSkillPath(
+    dm: DoneManager,
+    skill_name: str,
+    agent: Agent,
+    get_skill_path: Callable[[str], Path | None],
+) -> Path | None:
+    """Return the skill file for `skill_name`, or `None` (after writing an error) if it cannot be resolved."""
+
+    try:
+        path = get_skill_path(skill_name)
+    except ValueError as ex:
+        dm.WriteError(str(ex))
+        return None
+
+    if path is None:
+        dm.WriteError(_SkillsUnsupportedMessage(agent))
+        return None
+
+    return path
+
+
+# ----------------------------------------------------------------------
 def _RenderContent(template: Path) -> tuple[str | None, str]:
     """Render `template`, returning its frontmatter (or `None`) and the full content to be written."""
 
@@ -210,12 +329,16 @@ def _SkillsUnsupportedMessage(agent: Agent) -> str:
 
 
 # ----------------------------------------------------------------------
-def _WriteFile(dm: DoneManager, path: Path, content: str) -> None:
+def _WriteFile(dm: DoneManager, path: Path, content: str | bytes) -> None:
     """Write `content` to `path`, creating parent directories as needed."""
 
     with dm.Nested(f"Writing '{path}'..."):
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+
+        if isinstance(content, bytes):
+            path.write_bytes(content)
+        else:
+            path.write_text(content, encoding="utf-8")
 
 
 # ----------------------------------------------------------------------

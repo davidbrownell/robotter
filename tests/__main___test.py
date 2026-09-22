@@ -277,18 +277,24 @@ class TestRenderSkillDispatch:
         render_local_skill.assert_not_called()
 
     # ----------------------------------------------------------------------
-    def test_directory_template_fails(
+    def test_directory_template_renders(
         self,
         tmp_path: Path,
         render_skill_spies: tuple[MagicMock, MagicMock],
     ):
         render_global_skill, render_local_skill = render_skill_spies
 
-        result = runner.invoke(app, ["render_skill", str(tmp_path), AgentType.ClaudeCode.value])
+        template_dir = tmp_path / "my-skill"
+        template_dir.mkdir()
 
-        assert result.exit_code != 0
-        render_global_skill.assert_not_called()
+        result = runner.invoke(app, ["render_skill", str(template_dir), AgentType.ClaudeCode.value])
+
+        assert result.exit_code == 0, result.output
+        render_global_skill.assert_called_once()
         render_local_skill.assert_not_called()
+
+        passed_template = render_global_skill.call_args.args[1]
+        assert Path(passed_template).resolve() == template_dir.resolve()
 
     # ----------------------------------------------------------------------
     def test_unknown_agent_fails(

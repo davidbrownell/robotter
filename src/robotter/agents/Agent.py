@@ -134,6 +134,30 @@ class Agent(ABC):
         return project_root / relative
 
     # ----------------------------------------------------------------------
+    @classmethod
+    def GetGlobalSkillDirectory(
+        cls,
+        skill_name: str,
+        operating_system: OperatingSystem | None = None,
+    ) -> Path | None:
+        """Return the directory owned by `skill_name` globally, or `None` if skills are unsupported."""
+
+        return cls._GetSkillDirectory(
+            cls.GetGlobalSkillPath(skill_name, operating_system),
+            cls.GetGlobalSkillsRoot(operating_system),
+        )
+
+    # ----------------------------------------------------------------------
+    @classmethod
+    def GetProjectSkillDirectory(cls, skill_name: str, project_root: Path) -> Path | None:
+        """Return the directory owned by `skill_name` under `project_root`, or `None` if unsupported."""
+
+        return cls._GetSkillDirectory(
+            cls.GetProjectSkillPath(skill_name, project_root),
+            cls.GetProjectSkillsRoot(project_root),
+        )
+
+    # ----------------------------------------------------------------------
     # |
     # |  Abstract Methods (implemented by derived classes)
     # |
@@ -181,6 +205,27 @@ class Agent(ABC):
     # |
     # |  Private Methods
     # |
+    # ----------------------------------------------------------------------
+    @staticmethod
+    def _GetSkillDirectory(skill_path: Path | None, skills_root: Path | None) -> Path | None:
+        """Return the directory containing `skill_path` exclusively, or `None` if there is none.
+
+        A skill owns a directory only when its file is nested beneath the skills root (the
+        `<root>/<name>/SKILL.md` layout). Agents that store a skill as a single file directly
+        in the skills root own no directory, because that root is shared with every other
+        skill; callers that write supporting files must not treat it as the skill's own.
+        """
+
+        if skill_path is None or skills_root is None:
+            return None
+
+        directory = skill_path.parent
+
+        if directory == skills_root or not directory.is_relative_to(skills_root):
+            return None
+
+        return directory
+
     # ----------------------------------------------------------------------
     @staticmethod
     def _ValidateSkillName(skill_name: str) -> None:
