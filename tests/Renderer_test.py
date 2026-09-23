@@ -1,12 +1,14 @@
 """Unit tests for robotter.Renderer"""
 
+import copy
+
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
 from jinja2 import Environment
 
-from robotter.Renderer import Parse
+from robotter.Renderer import Parse, RenderError
 
 
 # ----------------------------------------------------------------------
@@ -329,8 +331,11 @@ class TestParse:
             main_file = tmp_path / "main.txt"
             main_file.write_text("{{ include_configuration('does_not_exist.txt') }}")
 
-            with pytest.raises(FileNotFoundError):
+            with pytest.raises(RenderError) as exc_info:
                 Parse(env, main_file)
+
+            assert exc_info.value.filename == tmp_path / "does_not_exist.txt"
+            assert isinstance(exc_info.value.__cause__, FileNotFoundError)
 
         # ----------------------------------------------------------------------
         def test_include_with_main_file_having_frontmatter(self, env: Environment, tmp_path: Path):
@@ -350,3 +355,92 @@ class TestParse:
 
             assert frontmatter == "main: frontmatter"
             assert rendered == "Content: Included"
+
+
+# ----------------------------------------------------------------------
+class TestRenderError:
+    # ----------------------------------------------------------------------
+    def test_syntax_error_includes_filename(self, env: Environment, tmp_file):
+        file = tmp_file("Hello {% bogus %}")
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, file)
+
+        assert (
+            str(exc_info.value)
+            == f"An error was encountered while rendering '{file}': Encountered unknown tag 'bogus'."
+        )
+        assert exc_info.value.filename == file
+
+    # ----------------------------------------------------------------------
+    def test_runtime_error_includes_filename(self, env: Environment, tmp_file):
+        file = tmp_file("{{ 1 / 0 }}")
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, file)
+
+        assert str(exc_info.value) == f"An error was encountered while rendering '{file}': division by zero"
+        assert exc_info.value.filename == file
+
+    # ----------------------------------------------------------------------
+    def test_missing_file_includes_filename(self, env: Environment, tmp_path: Path):
+        file = tmp_path / "does_not_exist.txt"
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, file)
+
+        assert exc_info.value.filename == file
+
+    # ----------------------------------------------------------------------
+    def test_original_exception_is_preserved(self, env: Environment, tmp_file):
+        file = tmp_file("{{ 1 / 0 }}")
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, file)
+
+        assert isinstance(exc_info.value.__cause__, ZeroDivisionError)
+
+    # ----------------------------------------------------------------------
+    def test_error_survives_copy(self, env: Environment, tmp_file):
+        file = tmp_file("{{ 1 / 0 }}")
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, file)
+
+        duplicate = copy.copy(exc_info.value)
+
+        assert duplicate.filename == file
+        assert str(duplicate) == f"An error was encountered while rendering '{file}': division by zero"
+
+    # ----------------------------------------------------------------------
+    def test_error_identifies_included_file_not_including_file(self, env: Environment, tmp_path: Path):
+        included_file = tmp_path / "included.txt"
+        included_file.write_text("Inner {% bogus %}")
+
+        main_file = tmp_path / "main.txt"
+        main_file.write_text("Outer {{ include_configuration('included.txt') }}")
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, main_file)
+
+        assert (
+            str(exc_info.value)
+            == f"An error was encountered while rendering '{included_file}': Encountered unknown tag 'bogus'."
+        )
+        assert exc_info.value.filename == included_file
+
+    # ----------------------------------------------------------------------
+    def test_error_identifies_deeply_nested_included_file(self, env: Environment, tmp_path: Path):
+        level2_file = tmp_path / "level2.txt"
+        level2_file.write_text("{% bogus %}")
+
+        level1_file = tmp_path / "level1.txt"
+        level1_file.write_text("{{ include_configuration('level2.txt') }}")
+
+        main_file = tmp_path / "main.txt"
+        main_file.write_text("{{ include_configuration('level1.txt') }}")
+
+        with pytest.raises(RenderError) as exc_info:
+            Parse(env, main_file)
+
+        assert exc_info.value.filename == level2_file

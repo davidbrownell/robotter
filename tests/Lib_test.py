@@ -8,13 +8,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jinja2 import TemplateSyntaxError
-
 from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
 
 import robotter.Lib as lib_module
 
+from robotter.Renderer import RenderError
 from robotter.agents.Agent import Agent, OperatingSystem
 from robotter.Lib import (
     BrowseGlobal,
@@ -715,9 +714,10 @@ class TestRenderLocalSkillDirectory:
             {"aaa.md": "Valid", "SKILL.md": "Body", "zzz.md": "{% not_a_jinja_tag %}"},
         )
 
-        with pytest.raises(TemplateSyntaxError):
+        with pytest.raises(RenderError) as exc_info:
             _RunCapturingContent(lambda dm: RenderLocalSkill(dm, template_path, agent, output_dir))
 
+        assert exc_info.value.filename == template_path / "zzz.md"
         assert not output_dir.exists()
 
 
