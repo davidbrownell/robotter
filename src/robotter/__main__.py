@@ -103,6 +103,13 @@ def Render(
             help="Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered.",
         ),
     ] = None,
+    copy: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option(
+            "--copy",
+            help="Copy non-template files instead of creating symbolic links when rendering globally. Project-level rendering always copies.",
+        ),
+    ] = False,
     verbose: Annotated[  # noqa: FBT002
         bool,
         typer.Option("--verbose", help="Write verbose information to the terminal."),
@@ -121,7 +128,7 @@ def Render(
 
         with dm.Nested(f"Rendering '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                RenderGlobal(nested_dm, template, agent_instance)
+                RenderGlobal(nested_dm, template, agent_instance, copy=copy)
             else:
                 RenderLocal(nested_dm, template, agent_instance, output_dir)
 
@@ -151,6 +158,13 @@ def RenderSkill(
             help="Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered.",
         ),
     ] = None,
+    copy: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option(
+            "--copy",
+            help="Copy non-template files instead of creating symbolic links when rendering globally. Project-level rendering always copies.",
+        ),
+    ] = False,
     verbose: Annotated[  # noqa: FBT002
         bool,
         typer.Option("--verbose", help="Write verbose information to the terminal."),
@@ -169,7 +183,7 @@ def RenderSkill(
 
         with dm.Nested(f"Rendering skill '{agent.name}'...") as nested_dm:
             if output_dir is None:
-                RenderGlobalSkill(nested_dm, template, agent_instance)
+                RenderGlobalSkill(nested_dm, template, agent_instance, copy=copy)
             else:
                 RenderLocalSkill(nested_dm, template, agent_instance, output_dir)
 

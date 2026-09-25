@@ -117,6 +117,33 @@ def dm() -> Iterator[DoneManager]:
 
 
 # ----------------------------------------------------------------------
+@pytest.fixture
+def symlinks(tmp_path: Path) -> None:
+    """Skip the test when the host cannot create symbolic links (for example, Windows without Developer Mode)."""
+
+    probe = tmp_path / ".symlink-probe"
+
+    try:
+        probe.symlink_to(tmp_path)
+    except OSError:
+        pytest.skip("Symbolic links cannot be created on this host.")
+
+    probe.unlink()
+
+
+# ----------------------------------------------------------------------
+@pytest.fixture
+def symlink_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every attempt to create a symbolic link fail."""
+
+    def _Raise(*args, **kwargs) -> None:  # noqa: ARG001
+        msg = "Symbolic links are unavailable."
+        raise OSError(msg)
+
+    monkeypatch.setattr(Path, "symlink_to", _Raise)
+
+
+# ----------------------------------------------------------------------
 class TestRenderLocal:
     # ----------------------------------------------------------------------
     def test_writes_rendered_content(self, template, tmp_path: Path, dm: DoneManager):
@@ -147,6 +174,25 @@ class TestRenderLocal:
         RenderLocal(dm, file, agent, output_dir)
 
         assert (output_dir / "CONFIG.md").read_text(encoding="utf-8") == "Value: {{ 1 + 2 }}"
+
+    # ----------------------------------------------------------------------
+    def test_copies_non_template_byte_for_byte(self, tmp_path: Path, dm: DoneManager):
+        agent = _MakeAgent(project_path="CONFIG.md")
+        output_dir = tmp_path / "out"
+
+        # Leading and trailing whitespace and the frontmatter's blank lines would be normalized if
+        # the file were parsed.
+        payload = b"---\n\nkey: value\n\n---\n\nBody\n\n"
+
+        file = tmp_path / "template.md"
+        file.write_bytes(payload)
+
+        RenderLocal(dm, file, agent, output_dir)
+
+        written = output_dir / "CONFIG.md"
+
+        assert not written.is_symlink()
+        assert written.read_bytes() == payload
 
     # ----------------------------------------------------------------------
     def test_preserves_frontmatter(self, template, tmp_path: Path, dm: DoneManager):
@@ -256,6 +302,200 @@ class TestRenderGlobal:
 
         assert (tmp_path / "CONFIG.md").read_text(encoding="utf-8") == "content"
 
+    # ----------------------------------------------------------------------
+    def test_writes_template_as_file(self, template, tmp_path: Path, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.md"
+        agent = _MakeAgent(global_path=str(target))
+
+        RenderGlobal(dm, template("Value: {{ 3 + 4 }}"), agent)
+
+        assert not target.is_symlink()
+        assert target.read_text(encoding="utf-8") == "Value: 7"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_links_non_template(self, tmp_path: Path, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.mdc"
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Value: {{ 1 + 2 }}\n", encoding="utf-8")
+
+        RenderGlobal(dm, source, agent)
+
+        assert target.is_symlink()
+        assert target.resolve() == source.resolve()
+        assert target.read_text(encoding="utf-8") == "Value: {{ 1 + 2 }}\n"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_writes_the_linked_file_to_the_done_manager(self, tmp_path: Path):
+        target = tmp_path / "global" / "CONFIG.md"
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Body", encoding="utf-8")
+
+        content = _RunCapturingContent(lambda dm: RenderGlobal(dm, source, agent))
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{target}' to '{source.resolve()}'...DONE! (0, <scrubbed duration>)
+            DONE! (0, <scrubbed duration>)
+            """)
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_replaces_existing_file_with_link(self, tmp_path: Path, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.md"
+        target.parent.mkdir()
+        target.write_text("previous", encoding="utf-8")
+
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Body", encoding="utf-8")
+
+        RenderGlobal(dm, source, agent)
+        RenderGlobal(dm, source, agent)
+
+        assert target.is_symlink()
+        assert target.read_text(encoding="utf-8") == "Body"
+        assert sorted(path.name for path in target.parent.iterdir()) == ["CONFIG.md"]
+
+    # ----------------------------------------------------------------------
+    def test_copy_writes_non_template_byte_for_byte(self, tmp_path: Path, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.md"
+        agent = _MakeAgent(global_path=str(target))
+
+        payload = b"---\n\nkey: value\n\n---\n\nBody\n\n"
+
+        source = tmp_path / "instructions.md"
+        source.write_bytes(payload)
+
+        RenderGlobal(dm, source, agent, copy=True)
+
+        assert not target.is_symlink()
+        assert target.read_bytes() == payload
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_copy_replaces_link_without_modifying_its_source(self, tmp_path: Path, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.md"
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Original", encoding="utf-8")
+
+        RenderGlobal(dm, source, agent)
+
+        replacement = tmp_path / "replacement.md"
+        replacement.write_text("Replacement", encoding="utf-8")
+
+        RenderGlobal(dm, replacement, agent, copy=True)
+
+        assert not target.is_symlink()
+        assert target.read_text(encoding="utf-8") == "Replacement"
+        assert source.read_text(encoding="utf-8") == "Original"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_template_replaces_link_without_modifying_its_source(
+        self, template, tmp_path: Path, dm: DoneManager
+    ):
+        target = tmp_path / "global" / "CONFIG.md"
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Original", encoding="utf-8")
+
+        RenderGlobal(dm, source, agent)
+        RenderGlobal(dm, template("Value: {{ 3 + 4 }}"), agent)
+
+        assert not target.is_symlink()
+        assert target.read_text(encoding="utf-8") == "Value: 7"
+        assert source.read_text(encoding="utf-8") == "Original"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlink_failure")
+    def test_link_failure_writes_error_and_preserves_existing_file(self, tmp_path: Path):
+        target = tmp_path / "global" / "CONFIG.md"
+        target.parent.mkdir()
+        target.write_text("previous", encoding="utf-8")
+
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Body", encoding="utf-8")
+
+        content = _RunCapturingContent(lambda dm: RenderGlobal(dm, source, agent))
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{target}' to '{source.resolve()}'...
+                ERROR: A symbolic link to '{source.resolve()}' could not be created at '{target}' (Symbolic links are unavailable.); enable 'copy' to copy the file instead.
+              DONE! (-1, <scrubbed duration>)
+            DONE! (-1, <scrubbed duration>)
+            """)
+        assert not target.is_symlink()
+        assert target.read_text(encoding="utf-8") == "previous"
+        assert sorted(path.name for path in target.parent.iterdir()) == ["CONFIG.md"]
+
+    # ----------------------------------------------------------------------
+    def test_rendering_source_onto_itself_preserves_it(self, tmp_path: Path, dm: DoneManager):
+        source = tmp_path / "CONFIG.md"
+        source.write_text("Body", encoding="utf-8")
+
+        agent = _MakeAgent(global_path=str(source))
+
+        RenderGlobal(dm, source, agent)
+
+        assert not source.is_symlink()
+        assert source.read_text(encoding="utf-8") == "Body"
+        assert sorted(path.name for path in tmp_path.iterdir()) == ["CONFIG.md"]
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_replaces_stale_temporary_link(self, tmp_path: Path, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.md"
+        target.parent.mkdir()
+        target.with_name(".CONFIG.md.robotter-link").write_text("stale", encoding="utf-8")
+
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Body", encoding="utf-8")
+
+        RenderGlobal(dm, source, agent)
+
+        assert target.is_symlink()
+        assert target.read_text(encoding="utf-8") == "Body"
+        assert sorted(path.name for path in target.parent.iterdir()) == ["CONFIG.md"]
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_move_failure_removes_temporary_link(self, tmp_path: Path, monkeypatch, dm: DoneManager):
+        target = tmp_path / "global" / "CONFIG.md"
+        target.parent.mkdir()
+        target.write_text("previous", encoding="utf-8")
+
+        agent = _MakeAgent(global_path=str(target))
+
+        source = tmp_path / "instructions.md"
+        source.write_text("Body", encoding="utf-8")
+
+        def _Raise(*args, **kwargs) -> None:  # noqa: ARG001
+            msg = "The link cannot be moved."
+            raise OSError(msg)
+
+        monkeypatch.setattr(Path, "replace", _Raise)
+
+        with pytest.raises(OSError, match="The link cannot be moved."):
+            RenderGlobal(dm, source, agent)
+
+        assert target.read_text(encoding="utf-8") == "previous"
+        assert sorted(path.name for path in target.parent.iterdir()) == ["CONFIG.md"]
+
 
 # ----------------------------------------------------------------------
 class TestRenderLocalSkill:
@@ -303,6 +543,23 @@ class TestRenderLocalSkill:
             name: my-skill
             ---
             Body: {{ 2 + 2 }}""")
+
+    # ----------------------------------------------------------------------
+    def test_copies_non_template_byte_for_byte(self, tmp_path: Path, dm: DoneManager):
+        agent = _MakeAgent(project_skill_template="skills/{skill_name}/SKILL.md")
+        output_dir = tmp_path / "out"
+
+        payload = b"---\nname: my-skill\n\n---\n\nBody\n\n"
+
+        file = tmp_path / "SKILL.md"
+        file.write_bytes(payload)
+
+        RenderLocalSkill(dm, file, agent, output_dir)
+
+        written = output_dir / "skills" / "my-skill" / "SKILL.md"
+
+        assert not written.is_symlink()
+        assert written.read_bytes() == payload
 
     # ----------------------------------------------------------------------
     def test_unsupported_agent_writes_error(self, template, tmp_path: Path):
@@ -388,11 +645,75 @@ class TestRenderGlobalSkill:
             agent,
         )
 
-        assert (tmp_path / "skills" / "my-skill" / "SKILL.md").read_text(encoding="utf-8") == dedent("""\
+        written = tmp_path / "skills" / "my-skill" / "SKILL.md"
+
+        assert not written.is_symlink()
+        assert written.read_text(encoding="utf-8") == dedent("""\
             ---
             name: my-skill
             ---
             Body: 2""")
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_links_non_template(self, tmp_path: Path, monkeypatch, dm: DoneManager):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        source = tmp_path / "review_skill.md"
+        source.write_text("---\nname: my-skill\n---\nBody\n", encoding="utf-8")
+
+        RenderGlobalSkill(dm, source, agent)
+
+        written = tmp_path / "skills" / "my-skill" / "SKILL.md"
+
+        assert written.is_symlink()
+        assert written.resolve() == source.resolve()
+
+    # ----------------------------------------------------------------------
+    def test_copy_writes_non_template_byte_for_byte(self, tmp_path: Path, monkeypatch, dm: DoneManager):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        payload = b"---\nname: my-skill\n---\nBody\n"
+
+        source = tmp_path / "review_skill.md"
+        source.write_bytes(payload)
+
+        RenderGlobalSkill(dm, source, agent, copy=True)
+
+        written = tmp_path / "skills" / "my-skill" / "SKILL.md"
+
+        assert not written.is_symlink()
+        assert written.read_bytes() == payload
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlink_failure")
+    def test_link_failure_writes_error(self, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeAgent(global_skill_template="~/skills/{skill_name}/SKILL.md")
+
+        source = tmp_path / "review_skill.md"
+        source.write_text("---\nname: my-skill\n---\nBody\n", encoding="utf-8")
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, source, agent))
+
+        written = tmp_path / "skills" / "my-skill" / "SKILL.md"
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{written}' to '{source.resolve()}'...
+                ERROR: A symbolic link to '{source.resolve()}' could not be created at '{written}' (Symbolic links are unavailable.); enable 'copy' to copy the file instead.
+              DONE! (-1, <scrubbed duration>)
+            DONE! (-1, <scrubbed duration>)
+            """)
+        assert list(written.parent.iterdir()) == []
 
     # ----------------------------------------------------------------------
     def test_unsupported_agent_writes_error(self, template, tmp_path: Path, monkeypatch):
@@ -815,6 +1136,7 @@ class TestRenderLocalSkillDirectory:
         assert destination.joinpath("script.js").read_text(encoding="utf-8") == "// {{ not_a_template }}"
         assert destination.joinpath("data.yaml").read_text(encoding="utf-8") == "---\nkey: value\n"
         assert destination.joinpath("invalid.hbs").read_text(encoding="utf-8") == "{% not_a_jinja_tag %}"
+        assert not any(path.is_symlink() for path in destination.iterdir())
 
     # ----------------------------------------------------------------------
     def test_copies_binary_files_byte_for_byte(self, skill_dir, tmp_path: Path, dm: DoneManager):
@@ -852,6 +1174,7 @@ class TestRenderLocalSkillDirectory:
 # ----------------------------------------------------------------------
 class TestRenderGlobalSkillDirectory:
     # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
     def test_writes_every_file_under_skill_named_by_directory(
         self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager
     ):
@@ -882,6 +1205,93 @@ class TestRenderGlobalSkillDirectory:
         content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
 
         assert content == _ExpectedError("The 'Stub' agent does not support skills.")
+        assert not (tmp_path / "skills").exists()
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_links_non_template_files_and_writes_templates(self, skill_dir, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir(
+            {"SKILL.jinja.md": "Body: {{ 1 + 1 }}", "reference.md": "Reference", "scripts/check.py": "pass"},
+        )
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        destination = tmp_path / "skills" / "my-skill"
+        resolved = template_path.resolve()
+
+        # Links are created before any file is written.
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{destination / "reference.md"}' to '{resolved / "reference.md"}'...DONE! (0, <scrubbed duration>)
+              Linking '{destination / "scripts" / "check.py"}' to '{resolved / "scripts" / "check.py"}'...DONE! (0, <scrubbed duration>)
+              Writing '{destination / "SKILL.md"}'...DONE! (0, <scrubbed duration>)
+            DONE! (0, <scrubbed duration>)
+            """)
+
+        assert not destination.joinpath("SKILL.md").is_symlink()
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body: 2"
+        assert destination.joinpath("reference.md").resolve() == resolved / "reference.md"
+        assert destination.joinpath("scripts", "check.py").resolve() == resolved / "scripts" / "check.py"
+
+    # ----------------------------------------------------------------------
+    def test_copy_writes_every_file(self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+
+        RenderGlobalSkill(
+            dm,
+            skill_dir({"SKILL.jinja.md": "Body: {{ 1 + 1 }}", "reference.md": "Reference"}),
+            agent,
+            copy=True,
+        )
+
+        destination = tmp_path / "skills" / "my-skill"
+
+        assert not destination.joinpath("SKILL.md").is_symlink()
+        assert not destination.joinpath("reference.md").is_symlink()
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body: 2"
+        assert destination.joinpath("reference.md").read_text(encoding="utf-8") == "Reference"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlink_failure")
+    def test_link_failure_writes_no_files(self, skill_dir, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.jinja.md": "Body", "reference.md": "Reference"})
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        link = tmp_path / "skills" / "my-skill" / "reference.md"
+        source = template_path.resolve() / "reference.md"
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{link}' to '{source}'...
+                ERROR: A symbolic link to '{source}' could not be created at '{link}' (Symbolic links are unavailable.); enable 'copy' to copy the file instead.
+              DONE! (-1, <scrubbed duration>)
+            DONE! (-1, <scrubbed duration>)
+            """)
+        assert list(link.parent.iterdir()) == []
+
+    # ----------------------------------------------------------------------
+    def test_render_failure_links_nothing(self, skill_dir, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.jinja.md": "{% not_a_jinja_tag %}", "reference.md": "Reference"})
+
+        with pytest.raises(RenderError):
+            _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
         assert not (tmp_path / "skills").exists()
 
 
