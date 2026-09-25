@@ -8,7 +8,7 @@ from textwrap import dedent
 import pytest
 from jinja2 import Environment
 
-from robotter.Renderer import Parse, RenderError
+from robotter.Renderer import GetOutputPath, IsTemplate, Parse, RenderError
 
 
 # ----------------------------------------------------------------------
@@ -23,7 +23,7 @@ def tmp_file(tmp_path: Path):
     """Factory fixture for creating temporary files with content."""
 
     def _create(content: str) -> Path:
-        file = tmp_path / "test_file.txt"
+        file = tmp_path / "test_file.jinja.txt"
         file.write_text(content)
         return file
 
@@ -203,11 +203,11 @@ class TestParse:
     class TestIncludeConfiguration:
         # ----------------------------------------------------------------------
         def test_include_simple_file(self, env: Environment, tmp_path: Path):
-            included_file = tmp_path / "included.txt"
+            included_file = tmp_path / "included.jinja.txt"
             included_file.write_text("Included content")
 
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("Before {{ include_configuration('included.txt') }} After")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text("Before {{ include_configuration('included.jinja.txt') }} After")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -216,7 +216,7 @@ class TestParse:
 
         # ----------------------------------------------------------------------
         def test_include_file_with_frontmatter_ignores_frontmatter(self, env: Environment, tmp_path: Path):
-            included_file = tmp_path / "included.txt"
+            included_file = tmp_path / "included.jinja.txt"
             included_file.write_text(
                 dedent("""\
                 ---
@@ -225,8 +225,8 @@ class TestParse:
                 Only this content""")
             )
 
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("{{ include_configuration('included.txt') }}")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text("{{ include_configuration('included.jinja.txt') }}")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -238,11 +238,11 @@ class TestParse:
             subdir = tmp_path / "subdir"
             subdir.mkdir()
 
-            included_file = subdir / "nested.txt"
+            included_file = subdir / "nested.jinja.txt"
             included_file.write_text("Nested content")
 
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("{{ include_configuration('subdir/nested.txt') }}")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text("{{ include_configuration('subdir/nested.jinja.txt') }}")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -251,11 +251,11 @@ class TestParse:
 
         # ----------------------------------------------------------------------
         def test_include_file_with_jinja2_template(self, env: Environment, tmp_path: Path):
-            included_file = tmp_path / "included.txt"
+            included_file = tmp_path / "included.jinja.txt"
             included_file.write_text("Result: {{ 2 * 3 }}")
 
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("{{ include_configuration('included.txt') }}")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text("{{ include_configuration('included.jinja.txt') }}")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -264,14 +264,14 @@ class TestParse:
 
         # ----------------------------------------------------------------------
         def test_nested_include_configuration(self, env: Environment, tmp_path: Path):
-            level2_file = tmp_path / "level2.txt"
+            level2_file = tmp_path / "level2.jinja.txt"
             level2_file.write_text("Level 2")
 
-            level1_file = tmp_path / "level1.txt"
-            level1_file.write_text("[{{ include_configuration('level2.txt') }}]")
+            level1_file = tmp_path / "level1.jinja.txt"
+            level1_file.write_text("[{{ include_configuration('level2.jinja.txt') }}]")
 
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("Main: {{ include_configuration('level1.txt') }}")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text("Main: {{ include_configuration('level1.jinja.txt') }}")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -283,11 +283,11 @@ class TestParse:
             subdir = tmp_path / "subdir"
             subdir.mkdir()
 
-            sibling_file = subdir / "sibling.txt"
+            sibling_file = subdir / "sibling.jinja.txt"
             sibling_file.write_text("Sibling content")
 
-            main_file = subdir / "main.txt"
-            main_file.write_text("{{ include_configuration('sibling.txt') }}")
+            main_file = subdir / "main.jinja.txt"
+            main_file.write_text("{{ include_configuration('sibling.jinja.txt') }}")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -296,14 +296,14 @@ class TestParse:
 
         # ----------------------------------------------------------------------
         def test_include_parent_directory_file(self, env: Environment, tmp_path: Path):
-            parent_file = tmp_path / "parent.txt"
+            parent_file = tmp_path / "parent.jinja.txt"
             parent_file.write_text("Parent content")
 
             subdir = tmp_path / "subdir"
             subdir.mkdir()
 
-            main_file = subdir / "main.txt"
-            main_file.write_text("{{ include_configuration('../parent.txt') }}")
+            main_file = subdir / "main.jinja.txt"
+            main_file.write_text("{{ include_configuration('../parent.jinja.txt') }}")
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -312,14 +312,16 @@ class TestParse:
 
         # ----------------------------------------------------------------------
         def test_multiple_includes_in_same_file(self, env: Environment, tmp_path: Path):
-            file_a = tmp_path / "a.txt"
+            file_a = tmp_path / "a.jinja.txt"
             file_a.write_text("A")
 
-            file_b = tmp_path / "b.txt"
+            file_b = tmp_path / "b.jinja.txt"
             file_b.write_text("B")
 
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("{{ include_configuration('a.txt') }}-{{ include_configuration('b.txt') }}")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text(
+                "{{ include_configuration('a.jinja.txt') }}-{{ include_configuration('b.jinja.txt') }}"
+            )
 
             frontmatter, rendered = Parse(env, main_file)
 
@@ -328,27 +330,27 @@ class TestParse:
 
         # ----------------------------------------------------------------------
         def test_include_nonexistent_file_raises_error(self, env: Environment, tmp_path: Path):
-            main_file = tmp_path / "main.txt"
-            main_file.write_text("{{ include_configuration('does_not_exist.txt') }}")
+            main_file = tmp_path / "main.jinja.txt"
+            main_file.write_text("{{ include_configuration('does_not_exist.jinja.txt') }}")
 
             with pytest.raises(RenderError) as exc_info:
                 Parse(env, main_file)
 
-            assert exc_info.value.filename == tmp_path / "does_not_exist.txt"
+            assert exc_info.value.filename == tmp_path / "does_not_exist.jinja.txt"
             assert isinstance(exc_info.value.__cause__, FileNotFoundError)
 
         # ----------------------------------------------------------------------
         def test_include_with_main_file_having_frontmatter(self, env: Environment, tmp_path: Path):
-            included_file = tmp_path / "included.txt"
+            included_file = tmp_path / "included.jinja.txt"
             included_file.write_text("Included")
 
-            main_file = tmp_path / "main.txt"
+            main_file = tmp_path / "main.jinja.txt"
             main_file.write_text(
                 dedent("""\
                 ---
                 main: frontmatter
                 ---
-                Content: {{ include_configuration('included.txt') }}""")
+                Content: {{ include_configuration('included.jinja.txt') }}""")
             )
 
             frontmatter, rendered = Parse(env, main_file)
@@ -384,7 +386,7 @@ class TestRenderError:
 
     # ----------------------------------------------------------------------
     def test_missing_file_includes_filename(self, env: Environment, tmp_path: Path):
-        file = tmp_path / "does_not_exist.txt"
+        file = tmp_path / "does_not_exist.jinja.txt"
 
         with pytest.raises(RenderError) as exc_info:
             Parse(env, file)
@@ -414,11 +416,11 @@ class TestRenderError:
 
     # ----------------------------------------------------------------------
     def test_error_identifies_included_file_not_including_file(self, env: Environment, tmp_path: Path):
-        included_file = tmp_path / "included.txt"
+        included_file = tmp_path / "included.jinja.txt"
         included_file.write_text("Inner {% bogus %}")
 
-        main_file = tmp_path / "main.txt"
-        main_file.write_text("Outer {{ include_configuration('included.txt') }}")
+        main_file = tmp_path / "main.jinja.txt"
+        main_file.write_text("Outer {{ include_configuration('included.jinja.txt') }}")
 
         with pytest.raises(RenderError) as exc_info:
             Parse(env, main_file)
@@ -431,16 +433,110 @@ class TestRenderError:
 
     # ----------------------------------------------------------------------
     def test_error_identifies_deeply_nested_included_file(self, env: Environment, tmp_path: Path):
-        level2_file = tmp_path / "level2.txt"
+        level2_file = tmp_path / "level2.jinja.txt"
         level2_file.write_text("{% bogus %}")
 
-        level1_file = tmp_path / "level1.txt"
-        level1_file.write_text("{{ include_configuration('level2.txt') }}")
+        level1_file = tmp_path / "level1.jinja.txt"
+        level1_file.write_text("{{ include_configuration('level2.jinja.txt') }}")
 
-        main_file = tmp_path / "main.txt"
-        main_file.write_text("{{ include_configuration('level1.txt') }}")
+        main_file = tmp_path / "main.jinja.txt"
+        main_file.write_text("{{ include_configuration('level1.jinja.txt') }}")
 
         with pytest.raises(RenderError) as exc_info:
             Parse(env, main_file)
 
         assert exc_info.value.filename == level2_file
+
+
+# ----------------------------------------------------------------------
+class TestParseNonTemplate:
+    # ----------------------------------------------------------------------
+    def test_content_is_not_rendered(self, env: Environment, tmp_path: Path):
+        file = tmp_path / "file.md"
+        file.write_text("Value: {{ 1 + 2 }} {% bogus %}")
+
+        frontmatter, rendered = Parse(env, file)
+
+        assert frontmatter is None
+        assert rendered == "Value: {{ 1 + 2 }} {% bogus %}"
+
+    # ----------------------------------------------------------------------
+    def test_frontmatter_is_separated(self, env: Environment, tmp_path: Path):
+        file = tmp_path / "file.md"
+        file.write_text(
+            dedent("""\
+                ---
+                name: value
+                ---
+                Content: {{ 1 + 2 }}"""),
+        )
+
+        frontmatter, rendered = Parse(env, file)
+
+        assert frontmatter == "name: value"
+        assert rendered == "Content: {{ 1 + 2 }}"
+
+    # ----------------------------------------------------------------------
+    def test_template_includes_non_template_verbatim(self, env: Environment, tmp_path: Path):
+        included_file = tmp_path / "included.md"
+        included_file.write_text(
+            dedent("""\
+                ---
+                ignored: true
+                ---
+                Included {{ 1 + 1 }}"""),
+        )
+
+        main_file = tmp_path / "main.jinja.md"
+        main_file.write_text("{{ 1 + 2 }}: {{ include_configuration('included.md') }}")
+
+        _, rendered = Parse(env, main_file)
+
+        assert rendered == "3: Included {{ 1 + 1 }}"
+
+
+# ----------------------------------------------------------------------
+class TestIsTemplate:
+    # ----------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        "filename",
+        ["foo.jinja", "foo.jinja2", "foo.jinja.txt", "foo.jinja2.md", "foo.bar.jinja.md", "FOO.JINJA.md"],
+    )
+    def test_templates(self, filename: str):
+        assert IsTemplate(Path("dir") / filename) is True
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        "filename",
+        ["foo", "foo.md", "jinja.md", "foo.jinjax", "foo-jinja.md", ".jinja"],
+    )
+    def test_non_templates(self, filename: str):
+        assert IsTemplate(Path("dir") / filename) is False
+
+    # ----------------------------------------------------------------------
+    def test_directory_name_is_ignored(self):
+        assert IsTemplate(Path("dir.jinja") / "foo.md") is False
+
+
+# ----------------------------------------------------------------------
+class TestGetOutputPath:
+    # ----------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        ("filename", "expected"),
+        [
+            ("SKILL.jinja.md", "SKILL.md"),
+            ("run.jinja2.py", "run.py"),
+            ("notes.jinja", "notes"),
+            ("notes.jinja2", "notes"),
+            ("foo.bar.jinja.md", "foo.bar.md"),
+            ("FOO.JINJA.md", "FOO.md"),
+            ("foo.md", "foo.md"),
+            ("foo", "foo"),
+        ],
+    )
+    def test_filename(self, filename: str, expected: str):
+        assert GetOutputPath(Path("dir") / filename) == Path("dir") / expected
+
+    # ----------------------------------------------------------------------
+    def test_directory_name_is_preserved(self):
+        assert GetOutputPath(Path("dir.jinja") / "foo.jinja.md") == Path("dir.jinja") / "foo.md"

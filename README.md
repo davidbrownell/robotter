@@ -64,6 +64,8 @@ Some agents also support "skills" — reusable instruction sets stored under a p
 
 Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved in the rendered output) and may compose other templates via the `include_configuration("<relative path>")` function, letting you maintain shared content once and assemble agent-specific files from it (see [Example Configuration](#example-configuration) and [Example Skill](#example-skill) below).
 
+Only files whose names include a `.jinja` or `.jinja2` extension are rendered as Jinja2 templates. The extension does not have to be the last one, so `instructions.jinja.md` is a template. Every other file is written verbatim, which means content such as `{{ ... }}` is preserved as-is.
+
 ### How to use `robotter`
 Render a template to an agent's configuration location(s):
 
@@ -81,22 +83,22 @@ uvx robotter render <template> <agent> [<dir>] [--verbose] [--debug]
 
 **Examples**
 
-Render `instructions.md` to the current user's global Claude Code configuration:
+Render `instructions.jinja.md` to the current user's global Claude Code configuration:
 
 ```shell
-uvx robotter render instructions.md claude-code
+uvx robotter render instructions.jinja.md claude-code
 ```
 
-Render `instructions.md` to the project-level OpenCode configuration under `./my-project`:
+Render `instructions.jinja.md` to the project-level OpenCode configuration under `./my-project`:
 
 ```shell
-uvx robotter render instructions.md opencode ./my-project
+uvx robotter render instructions.jinja.md opencode ./my-project
 ```
 
 #### Example Configuration
 A configuration file is a [Jinja2](https://jinja.palletsprojects.com/) template with optional [YAML](https://yaml.org/) frontmatter. Use the `include_configuration("<relative path>")` function to compose shared content from another configuration file, letting you maintain that content once and reuse it across multiple templates.
 
-The following `instructions.md` template includes a shared `shared/coding-standards.md` file:
+The following `instructions.jinja.md` template includes a shared `shared/coding-standards.md` file:
 
 ```jinja
 ---
@@ -111,7 +113,7 @@ This project composes GenAI dotfiles from a single source template.
 {{ include_configuration("shared/coding-standards.md") }}
 ```
 
-The included `shared/coding-standards.md` file (its frontmatter, if any, is ignored when included):
+The included `shared/coding-standards.md` file is not a template, so its content is included verbatim (its frontmatter, if any, is ignored when included):
 
 ```markdown
 - Prefer clarity over cleverness.
@@ -121,7 +123,7 @@ The included `shared/coding-standards.md` file (its frontmatter, if any, is igno
 
 The path passed to `include_configuration` is resolved relative to the file that contains the call, so a template in one directory can include a file located in a subdirectory (`"shared/coding-standards.md"`) or a parent directory (`"../coding-standards.md"`). Included files may themselves call `include_configuration`, allowing configuration to be composed from arbitrarily nested fragments.
 
-Rendering the `instructions.md` template above produces the following output (the frontmatter is preserved; the `include_configuration` call is replaced with the rendered content of the included file):
+Rendering the `instructions.jinja.md` template above produces the following output (the frontmatter is preserved; the `include_configuration` call is replaced with the rendered content of the included file):
 
 ```markdown
 ---
@@ -158,7 +160,7 @@ When `<template>` is a file, the skill name is taken from its frontmatter `name`
 #### Example Skill
 A single-file skill template is a [Jinja2](https://jinja.palletsprojects.com/) template with [YAML](https://yaml.org/) frontmatter that must include a `name` attribute; that name determines the per-skill location the rendered output is written to. Like a configuration template, a skill template may compose shared content via `include_configuration("<relative path>")`.
 
-The following `review_skill.md` skill template declares its name in frontmatter and reuses the shared `shared/coding-standards.md` file from the [Example Configuration](#example-configuration) above. Note that the template filename (`review_skill.md`) and the `name` attribute (`review`) are independent — for a single-file template the rendered output location is derived from `name`, not the filename:
+The following `review_skill.jinja.md` skill template declares its name in frontmatter and reuses the shared `shared/coding-standards.md` file from the [Example Configuration](#example-configuration) above. Note that the template filename (`review_skill.jinja.md`) and the `name` attribute (`review`) are independent — for a single-file template the rendered output location is derived from `name`, not the filename:
 
 ```jinja
 ---
@@ -190,16 +192,16 @@ Review the pending changes before committing, confirming they satisfy the projec
 
 **Examples**
 
-Render `review_skill.md` to the current user's global Claude Code skill location (`~/.claude/skills/review/SKILL.md`):
+Render `review_skill.jinja.md` to the current user's global Claude Code skill location (`~/.claude/skills/review/SKILL.md`):
 
 ```shell
-uvx robotter render_skill review_skill.md claude-code
+uvx robotter render_skill review_skill.jinja.md claude-code
 ```
 
-Render `review_skill.md` to the project-level Claude Code skill under `./my-project` (`./my-project/.claude/skills/review/SKILL.md`):
+Render `review_skill.jinja.md` to the project-level Claude Code skill under `./my-project` (`./my-project/.claude/skills/review/SKILL.md`):
 
 ```shell
-uvx robotter render_skill review_skill.md claude-code ./my-project
+uvx robotter render_skill review_skill.jinja.md claude-code ./my-project
 ```
 
 #### Skill Template Directories
@@ -207,13 +209,13 @@ A skill that needs supporting files — additional instructions, scripts, data �
 
 ```
 review/
-├── SKILL.md
+├── SKILL.jinja.md
 ├── reference.md
 └── scripts/
     └── check.py
 ```
 
-Rendering that directory for Claude Code produces `~/.claude/skills/review/SKILL.md`, `~/.claude/skills/review/reference.md`, and `~/.claude/skills/review/scripts/check.py`. The nested structure is preserved.
+Rendering that directory for Claude Code produces `~/.claude/skills/review/SKILL.md`, `~/.claude/skills/review/reference.md`, and `~/.claude/skills/review/scripts/check.py`. The nested structure is preserved, and the `.jinja`/`.jinja2` extension is removed from each template's output filename (`SKILL.jinja.md` is written as `SKILL.md`).
 
 Directory templates differ from single-file templates in the following ways:
 
@@ -221,13 +223,13 @@ Directory templates differ from single-file templates in the following ways:
 | --- | --- | --- |
 | Skill name | The frontmatter `name` attribute (required) | The directory name; frontmatter is not consulted for the name |
 | Files written | One | Every file beneath the directory, recursively |
-| Required content | — | Must contain `SKILL.md` at its top level |
+| Required content | — | Must produce `SKILL.md` at its top level (`SKILL.md` or, for example, `SKILL.jinja.md`) |
 
-Files ending in `.md` or `.markdown` are rendered as Jinja2 templates, with frontmatter preserved exactly as it is for a single-file template. Every other file is copied verbatim, so images, scripts, and data files are never corrupted by Jinja processing or by having a leading `---` consumed as frontmatter.
+Template files (those with a `.jinja` or `.jinja2` extension) are rendered with frontmatter preserved exactly as it is for a single-file template. Every other file is copied byte for byte, so images, scripts, and data files are never corrupted by having a leading `---` consumed as frontmatter.
 
 All files are rendered before any file is written, so a malformed template fails without leaving a partially installed skill behind. A failure during the writes themselves (a permission error, a full disk) can still leave the skill incomplete.
 
-`render_skill` fails, writing nothing, when the directory is empty, when it does not contain a top-level `SKILL.md`, or when the directory name is not a valid skill name.
+`render_skill` fails, writing nothing, when the directory is empty, when it does not produce a top-level `SKILL.md`, when multiple files produce the same output filename (for example, `SKILL.md` and `SKILL.jinja.md`), when a file's output name matches a directory (for example, `scripts.jinja` and `scripts/run.py`), or when the directory name is not a valid skill name.
 
 > [!NOTE]
 > On Windows, the `SKILL.md` requirement is satisfied case-insensitively because the filesystem is, so a directory containing only `skill.md` is accepted there and rejected on Linux and macOS. Name the file `SKILL.md` exactly; agents that load skills look for that spelling.

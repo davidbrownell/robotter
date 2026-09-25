@@ -9,8 +9,8 @@ if TYPE_CHECKING:
 
 
 # ----------------------------------------------------------------------
-RenderedTemplate = NewType("RenderedTemplate", str)
-"""A string produced by rendering a template through Jinja2."""
+ParsedContent = NewType("ParsedContent", str)
+"""Content produced by `Parse`: rendered through Jinja2 for templates, verbatim otherwise."""
 
 
 # ----------------------------------------------------------------------
@@ -38,14 +38,39 @@ class RenderError(Exception):
 
 
 # ----------------------------------------------------------------------
+# Template suffixes may appear anywhere in a filename (`SKILL.jinja.md`) so that the remaining
+# suffixes continue to describe the rendered file's type.
+_TEMPLATE_SUFFIXES: frozenset[str] = frozenset({".jinja", ".jinja2"})
+
+
+# ----------------------------------------------------------------------
+def IsTemplate(path: Path) -> bool:
+    """Return True if `path` names a Jinja2 template."""
+
+    return any(suffix.lower() in _TEMPLATE_SUFFIXES for suffix in path.suffixes)
+
+
+# ----------------------------------------------------------------------
+def GetOutputPath(path: Path) -> Path:
+    """Return `path` with any template suffixes removed from its filename."""
+
+    suffixes = path.suffixes
+    stem = path.name[: len(path.name) - len("".join(suffixes))]
+
+    return path.with_name(
+        stem + "".join(suffix for suffix in suffixes if suffix.lower() not in _TEMPLATE_SUFFIXES),
+    )
+
+
+# ----------------------------------------------------------------------
 def Parse(
     env: Environment,
     content: Path,
 ) -> tuple[
     str | None,  # Frontmatter
-    RenderedTemplate,
+    ParsedContent,
 ]:
-    """Parse the contents of a file, separating frontmatter from the main content and rendering it using Jinja2."""
+    """Parse the contents of a file, separating frontmatter from the main content and rendering it using Jinja2 if it is a template."""
 
     # ----------------------------------------------------------------------
     def IncludeConfiguration(relative_path: str) -> str:
@@ -76,7 +101,9 @@ def Parse(
             frontmatter = None
             main_content = raw_content.strip()
 
-        rendered_content = RenderedTemplate(env.from_string(main_content).render())
+        parsed_content = ParsedContent(
+            env.from_string(main_content).render() if IsTemplate(content) else main_content,
+        )
     except RenderError:
         # An included file has already been associated with its own filename; attributing it to the
         # including file as well would misidentify where the error occurred.
@@ -84,4 +111,4 @@ def Parse(
     except Exception as ex:
         raise RenderError(content, ex) from ex
 
-    return frontmatter, rendered_content
+    return frontmatter, parsed_content

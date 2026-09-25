@@ -10,7 +10,7 @@ import yaml
 
 from jinja2 import Environment
 
-from robotter.Renderer import Parse
+from robotter.Renderer import GetOutputPath, IsTemplate, Parse
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,12 +19,6 @@ if TYPE_CHECKING:
     from dbrownell_Common.Streams.DoneManager import DoneManager
 
     from robotter.agents.Agent import Agent
-
-
-# ----------------------------------------------------------------------
-# File extensions treated as Jinja templates when rendering a skill directory; every other file is
-# copied verbatim.
-_TEMPLATE_SUFFIXES: frozenset[str] = frozenset({".md", ".markdown"})
 
 
 # ----------------------------------------------------------------------
@@ -209,15 +203,43 @@ def _RenderSkillDirectory(
     # would order the writes differently per platform. Sorting on the relative path's parts keeps
     # the order stable everywhere.
     sources = sorted(
-        (source for source in template.rglob("*") if source.is_file()),
-        key=lambda source: source.relative_to(template).parts,
+        (
+            (source, GetOutputPath(source.relative_to(template)))
+            for source in template.rglob("*")
+            if source.is_file()
+        ),
+        key=lambda item: (item[1].parts, item[0].relative_to(template).parts),
     )
 
     if not sources:
         dm.WriteError(f"The skill template directory '{template}' is empty.")
         return
 
-    if skill_path not in {destination_root / source.relative_to(template) for source in sources}:
+    sources_by_output: dict[Path, list[Path]] = {}
+
+    for source, output in sources:
+        sources_by_output.setdefault(output, []).append(source)
+
+    # Removing template suffixes can make a file's output collide with a directory produced by
+    # other files (`scripts.jinja` alongside `scripts/run.py`).
+    output_directories = {parent for output in sources_by_output for parent in output.parents}
+
+    for output, output_sources in sources_by_output.items():
+        if len(output_sources) > 1:
+            dm.WriteError(
+                f"The skill template directory '{template}' contains multiple files that render to '{output.as_posix()}': "
+                + ", ".join(f"'{source.relative_to(template).as_posix()}'" for source in output_sources)
+                + ".",
+            )
+            return
+
+        if output in output_directories:
+            dm.WriteError(
+                f"The skill template directory '{template}' contains '{output_sources[0].relative_to(template).as_posix()}', which renders to '{output.as_posix()}', but '{output.as_posix()}' is also a directory.",
+            )
+            return
+
+    if skill_path not in {destination_root / output for output in sources_by_output}:
         dm.WriteError(
             f"The skill template directory '{template}' does not contain '{skill_path.name}'.",
         )
@@ -226,9 +248,7 @@ def _RenderSkillDirectory(
     # Render everything before writing anything so that a malformed template does not leave a
     # partially installed skill behind. Writes themselves are not staged, so a failure while
     # writing (a permission error, a full disk) can still leave the skill incomplete.
-    destinations = [
-        (destination_root / source.relative_to(template), _RenderSkillSource(source)) for source in sources
-    ]
+    destinations = [(destination_root / output, _RenderSkillSource(source)) for source, output in sources]
 
     for destination, content in destinations:
         _WriteFile(dm, destination, content)
@@ -239,9 +259,9 @@ def _RenderSkillSource(source: Path) -> str | bytes:
     """Render `source` as a template, or return its raw bytes when it is not a template."""
 
     # Skill directories carry supporting assets (images, scripts, data files) alongside their
-    # templates. Rendering those would corrupt them (Jinja constructs are stripped, leading `---`
-    # is consumed as frontmatter) or fail outright, so only template files are rendered.
-    if source.suffix.lower() not in _TEMPLATE_SUFFIXES:
+    # templates. Reading those as text would corrupt them (leading `---` is consumed as
+    # frontmatter, whitespace is stripped) or fail outright, so they are copied byte for byte.
+    if not IsTemplate(source):
         return source.read_bytes()
 
     _, content = _RenderContent(source)
