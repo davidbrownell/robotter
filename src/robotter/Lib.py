@@ -22,22 +22,22 @@ if TYPE_CHECKING:
 
 
 # ----------------------------------------------------------------------
-def RenderGlobal(dm: DoneManager, template: Path, agent: Agent) -> None:
-    """Render `template` and write the result to `agent`'s global configuration file."""
+def RenderGlobal(dm: DoneManager, template: Path, agent: Agent, *, copy: bool = False) -> None:
+    """Render `template` to `agent`'s global configuration file, linking to it unless it is a template or `copy` is set."""
 
-    _Render(dm, template, agent.GetGlobalConfigurationFilename())
+    _Render(dm, template, agent.GetGlobalConfigurationFilename(), allow_symlink=not copy)
 
 
 # ----------------------------------------------------------------------
 def RenderLocal(dm: DoneManager, template: Path, agent: Agent, output_dir: Path) -> None:
     """Render `template` and write the result to `agent`'s project configuration file under `output_dir`."""
 
-    _Render(dm, template, agent.GetProjectConfigurationFilename(output_dir))
+    _Render(dm, template, agent.GetProjectConfigurationFilename(output_dir), allow_symlink=False)
 
 
 # ----------------------------------------------------------------------
-def RenderGlobalSkill(dm: DoneManager, template: Path, agent: Agent) -> None:
-    """Render the skill `template` (a file or a directory) to `agent`'s global skill location."""
+def RenderGlobalSkill(dm: DoneManager, template: Path, agent: Agent, *, copy: bool = False) -> None:
+    """Render the skill `template` (a file or a directory) to `agent`'s global skill location, linking to non-template files unless `copy` is set."""
 
     _RenderSkill(
         dm,
@@ -45,6 +45,7 @@ def RenderGlobalSkill(dm: DoneManager, template: Path, agent: Agent) -> None:
         agent,
         agent.GetGlobalSkillPath,
         agent.GetGlobalSkillDirectory,
+        allow_symlink=not copy,
     )
 
 
@@ -58,6 +59,7 @@ def RenderLocalSkill(dm: DoneManager, template: Path, agent: Agent, output_dir: 
         agent,
         lambda skill_name: agent.GetProjectSkillPath(skill_name, output_dir),
         lambda skill_name: agent.GetProjectSkillDirectory(skill_name, output_dir),
+        allow_symlink=False,
     )
 
 
@@ -137,12 +139,10 @@ def BrowseLocalSkills(dm: DoneManager, agent: Agent, output_dir: Path) -> None:
 # |  Private Functions
 # |
 # ----------------------------------------------------------------------
-def _Render(dm: DoneManager, template: Path, path: Path) -> None:
+def _Render(dm: DoneManager, template: Path, path: Path, *, allow_symlink: bool) -> None:
     """Render `template` and write the result to `path`."""
 
-    _, content = _RenderContent(template)
-
-    _WriteFile(dm, path, content)
+    _WriteOutput(dm, path, template, _RenderTemplate(template), allow_symlink=allow_symlink)
 
 
 # ----------------------------------------------------------------------
@@ -152,13 +152,23 @@ def _RenderSkill(
     agent: Agent,
     get_skill_path: Callable[[str], Path | None],
     get_skill_directory: Callable[[str], Path | None],
+    *,
+    allow_symlink: bool,
 ) -> None:
     """Render a skill template file or directory to the location produced by `get_skill_path`."""
 
     if template.is_dir():
-        _RenderSkillDirectory(dm, template, agent, get_skill_path, get_skill_directory)
+        _RenderSkillDirectory(
+            dm,
+            template,
+            agent,
+            get_skill_path,
+            get_skill_directory,
+            allow_symlink=allow_symlink,
+        )
         return
 
+    # Non-templates are parsed as well, because their frontmatter names the skill.
     frontmatter, content = _RenderContent(template)
 
     skill_name = _ExtractSkillName(dm, template, frontmatter)
@@ -169,7 +179,13 @@ def _RenderSkill(
     if path is None:
         return
 
-    _WriteFile(dm, path, content)
+    _WriteOutput(
+        dm,
+        path,
+        template,
+        content if IsTemplate(template) else None,
+        allow_symlink=allow_symlink,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -179,6 +195,8 @@ def _RenderSkillDirectory(
     agent: Agent,
     get_skill_path: Callable[[str], Path | None],
     get_skill_directory: Callable[[str], Path | None],
+    *,
+    allow_symlink: bool,
 ) -> None:
     """Render every file under the `template` directory into a skill directory named after `template`."""
 
@@ -248,25 +266,18 @@ def _RenderSkillDirectory(
     # Render everything before writing anything so that a malformed template does not leave a
     # partially installed skill behind. Writes themselves are not staged, so a failure while
     # writing (a permission error, a full disk) can still leave the skill incomplete.
-    destinations = [(destination_root / output, _RenderSkillSource(source)) for source, output in sources]
+    destinations = [
+        (destination_root / output, source, _RenderTemplate(source)) for source, output in sources
+    ]
 
-    for destination, content in destinations:
-        _WriteFile(dm, destination, content)
+    # Symbolic links usually fail for every file (for example, when the process lacks the privilege
+    # to create them), so creating them first means such a failure writes nothing.
+    if allow_symlink:
+        destinations.sort(key=lambda item: item[2] is not None)
 
-
-# ----------------------------------------------------------------------
-def _RenderSkillSource(source: Path) -> str | bytes:
-    """Render `source` as a template, or return its raw bytes when it is not a template."""
-
-    # Skill directories carry supporting assets (images, scripts, data files) alongside their
-    # templates. Reading those as text would corrupt them (leading `---` is consumed as
-    # frontmatter, whitespace is stripped) or fail outright, so they are copied byte for byte.
-    if not IsTemplate(source):
-        return source.read_bytes()
-
-    _, content = _RenderContent(source)
-
-    return content
+    for destination, source, content in destinations:
+        if not _WriteOutput(dm, destination, source, content, allow_symlink=allow_symlink):
+            return
 
 
 # ----------------------------------------------------------------------
@@ -301,6 +312,13 @@ def _RenderContent(template: Path) -> tuple[str | None, str]:
     content = rendered if frontmatter is None else f"---\n{frontmatter}\n---\n{rendered}"
 
     return frontmatter, content
+
+
+# ----------------------------------------------------------------------
+def _RenderTemplate(source: Path) -> str | None:
+    """Return the rendered content of `source`, or `None` if it is not a template and is reproduced verbatim."""
+
+    return _RenderContent(source)[1] if IsTemplate(source) else None
 
 
 # ----------------------------------------------------------------------
@@ -349,11 +367,76 @@ def _SkillsUnsupportedMessage(agent: Agent) -> str:
 
 
 # ----------------------------------------------------------------------
+def _WriteOutput(
+    dm: DoneManager,
+    path: Path,
+    source: Path,
+    content: str | None,
+    *,
+    allow_symlink: bool,
+) -> bool:
+    """Write rendered `content` to `path`, or reproduce `source` verbatim when `content` is `None`.
+
+    Returns False (after writing an error) if a symbolic link could not be created.
+    """
+
+    if content is not None:
+        _WriteFile(dm, path, content)
+        return True
+
+    # Non-templates are reproduced byte for byte; reading them as text would strip whitespace,
+    # consume a leading `---` as frontmatter, or fail outright for binary files.
+    if not allow_symlink:
+        _WriteFile(dm, path, source.read_bytes())
+        return True
+
+    return _LinkFile(dm, path, source)
+
+
+# ----------------------------------------------------------------------
+def _LinkFile(dm: DoneManager, path: Path, source: Path) -> bool:
+    """Replace `path` with a symbolic link to `source`, returning False (after writing an error) on failure."""
+
+    source = source.resolve()
+
+    with dm.Nested(f"Linking '{path}' to '{source}'...") as nested_dm:
+        # `path` is already `source` (or a link to it); replacing it would destroy the source.
+        if path.resolve() == source:
+            return True
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Creating the link under a temporary name and moving it into place leaves an existing
+        # `path` intact when the link cannot be created.
+        temp_path = path.with_name(f".{path.name}.robotter-link")
+        temp_path.unlink(missing_ok=True)
+
+        try:
+            temp_path.symlink_to(source)
+        except OSError as ex:
+            nested_dm.WriteError(
+                f"A symbolic link to '{source}' could not be created at '{path}' ({ex}); enable 'copy' to copy the file instead.",
+            )
+            return False
+
+        try:
+            temp_path.replace(path)
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    return True
+
+
+# ----------------------------------------------------------------------
 def _WriteFile(dm: DoneManager, path: Path, content: str | bytes) -> None:
     """Write `content` to `path`, creating parent directories as needed."""
 
     with dm.Nested(f"Writing '{path}'..."):
         path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Writing through a link left by a previous render would overwrite its source.
+        if path.is_symlink():
+            path.unlink()
 
         if isinstance(content, bytes):
             path.write_bytes(content)

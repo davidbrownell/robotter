@@ -163,6 +163,20 @@ class TestDispatch:
 
         passed_template = render_global.call_args.args[1]
         assert Path(passed_template).resolve() == template.resolve()
+        assert render_global.call_args.kwargs == {"copy": False}
+
+    # ----------------------------------------------------------------------
+    def test_copy_is_forwarded(
+        self,
+        template: Path,
+        render_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global, _ = render_spies
+
+        result = runner.invoke(app, ["render", str(template), AgentType.ClaudeCode.value, "--copy"])
+
+        assert result.exit_code == 0, result.output
+        assert render_global.call_args.kwargs == {"copy": True}
 
     # ----------------------------------------------------------------------
     def test_output_dir_renders_local(
@@ -236,6 +250,20 @@ class TestRenderSkillDispatch:
 
         passed_template = render_global_skill.call_args.args[1]
         assert Path(passed_template).resolve() == template.resolve()
+        assert render_global_skill.call_args.kwargs == {"copy": False}
+
+    # ----------------------------------------------------------------------
+    def test_copy_is_forwarded(
+        self,
+        template: Path,
+        render_skill_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global_skill, _ = render_skill_spies
+
+        result = runner.invoke(app, ["render_skill", str(template), AgentType.ClaudeCode.value, "--copy"])
+
+        assert result.exit_code == 0, result.output
+        assert render_global_skill.call_args.kwargs == {"copy": True}
 
     # ----------------------------------------------------------------------
     def test_output_dir_renders_local(

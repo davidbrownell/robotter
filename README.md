@@ -66,11 +66,13 @@ Templates may include optional [YAML](https://yaml.org/) frontmatter (preserved 
 
 Only files whose names include a `.jinja` or `.jinja2` extension are rendered as Jinja2 templates. The extension does not have to be the last one, so `instructions.jinja.md` is a template. Every other file is written verbatim, which means content such as `{{ ... }}` is preserved as-is.
 
+When rendering globally, a file that is not a template is installed as a symbolic link to its source, so edits to the source take effect without rendering again. Templates are always written as files, and project-level rendering always copies. Pass `--copy` to copy non-template files instead of linking them. If a symbolic link cannot be created (for example, on Windows without Developer Mode or administrator rights), rendering fails; pass `--copy` to render anyway.
+
 ### How to use `robotter`
 Render a template to an agent's configuration location(s):
 
 ```shell
-uvx robotter render <template> <agent> [<dir>] [--verbose] [--debug]
+uvx robotter render <template> <agent> [<dir>] [--copy] [--verbose] [--debug]
 ```
 
 | Argument / Option | Description |
@@ -78,6 +80,7 @@ uvx robotter render <template> <agent> [<dir>] [--verbose] [--debug]
 | `<template>` | Path to the template file to render. |
 | `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered. |
+| `--copy` | Copy a non-template file instead of creating a symbolic link to it when rendering globally. Project-level rendering always copies. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
 
@@ -144,7 +147,7 @@ This project composes GenAI dotfiles from a single source template.
 Some agents support "skills" — reusable instruction sets stored under a per-skill location. Render a skill template to an agent's skill location(s):
 
 ```shell
-uvx robotter render_skill <template> <agent> [<dir>] [--verbose] [--debug]
+uvx robotter render_skill <template> <agent> [<dir>] [--copy] [--verbose] [--debug]
 ```
 
 | Argument / Option | Description |
@@ -152,6 +155,7 @@ uvx robotter render_skill <template> <agent> [<dir>] [--verbose] [--debug]
 | `<template>` | Path to the skill template file to render, or to a [skill template directory](#skill-template-directories) whose files are each rendered into a skill named after the directory. |
 | `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered. |
+| `--copy` | Copy non-template files instead of creating symbolic links to them when rendering globally. Project-level rendering always copies. |
 | `--verbose` | Write verbose information to the terminal. |
 | `--debug` | Write debug information to the terminal. |
 
@@ -225,7 +229,7 @@ Directory templates differ from single-file templates in the following ways:
 | Files written | One | Every file beneath the directory, recursively |
 | Required content | — | Must produce `SKILL.md` at its top level (`SKILL.md` or, for example, `SKILL.jinja.md`) |
 
-Template files (those with a `.jinja` or `.jinja2` extension) are rendered with frontmatter preserved exactly as it is for a single-file template. Every other file is copied byte for byte, so images, scripts, and data files are never corrupted by having a leading `---` consumed as frontmatter.
+Template files (those with a `.jinja` or `.jinja2` extension) are rendered with frontmatter preserved exactly as it is for a single-file template. Every other file is reproduced byte for byte (linked when rendering globally, copied otherwise), so images, scripts, and data files are never corrupted by having a leading `---` consumed as frontmatter. Symbolic links are created before any template is written, so a host that cannot create them fails without writing any files.
 
 All files are rendered before any file is written, so a malformed template fails without leaving a partially installed skill behind. A failure during the writes themselves (a permission error, a full disk) can still leave the skill incomplete.
 
