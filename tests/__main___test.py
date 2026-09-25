@@ -28,7 +28,7 @@ runner = CliRunner()
 def template(tmp_path: Path) -> Path:
     """Write a template file and return its path."""
 
-    file = tmp_path / "template.md"
+    file = tmp_path / "template.jinja.md"
     file.write_text("Value: {{ 1 + 2 }}", encoding="utf-8")
     return file
 
