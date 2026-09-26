@@ -433,7 +433,7 @@ class TestRenderGlobal:
         assert content == dedent(f"""\
             Heading...
               Linking '{target}' to '{source.resolve()}'...
-                ERROR: A symbolic link to '{source.resolve()}' could not be created at '{target}' (Symbolic links are unavailable.); enable 'copy' to copy the file instead.
+                ERROR: A symbolic link to '{source.resolve()}' could not be created at '{target}' (Symbolic links are unavailable.); enable 'copy' to copy it instead.
               DONE! (-1, <scrubbed duration>)
             DONE! (-1, <scrubbed duration>)
             """)
@@ -709,7 +709,7 @@ class TestRenderGlobalSkill:
         assert content == dedent(f"""\
             Heading...
               Linking '{written}' to '{source.resolve()}'...
-                ERROR: A symbolic link to '{source.resolve()}' could not be created at '{written}' (Symbolic links are unavailable.); enable 'copy' to copy the file instead.
+                ERROR: A symbolic link to '{source.resolve()}' could not be created at '{written}' (Symbolic links are unavailable.); enable 'copy' to copy it instead.
               DONE! (-1, <scrubbed duration>)
             DONE! (-1, <scrubbed duration>)
             """)
@@ -1238,6 +1238,225 @@ class TestRenderGlobalSkillDirectory:
         assert destination.joinpath("scripts", "check.py").resolve() == resolved / "scripts" / "check.py"
 
     # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_links_directory_without_templates(self, skill_dir, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.md": "Body", "scripts/check.py": "pass"})
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        destination = tmp_path / "skills" / "my-skill"
+        resolved = template_path.resolve()
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{destination}' to '{resolved}'...DONE! (0, <scrubbed duration>)
+            DONE! (0, <scrubbed duration>)
+            """)
+
+        assert destination.is_symlink()
+        assert destination.resolve() == resolved
+
+        # Files added to the source after rendering are visible without rendering again.
+        (template_path / "reference.md").write_text("Reference", encoding="utf-8")
+
+        assert destination.joinpath("reference.md").read_text(encoding="utf-8") == "Reference"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_link_replaces_existing_directory(self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        destination = tmp_path / "skills" / "my-skill"
+        destination.mkdir(parents=True)
+        (destination / "SKILL.md").write_text("Stale", encoding="utf-8")
+        (destination / "removed.md").write_text("Removed", encoding="utf-8")
+
+        RenderGlobalSkill(dm, template_path, agent)
+
+        assert destination.is_symlink()
+        assert sorted(path.name for path in destination.iterdir()) == ["SKILL.md"]
+        assert destination.joinpath("SKILL.md").read_text(encoding="utf-8") == "Body"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_link_replaces_link_to_other_directory(
+        self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        original = skill_dir({"SKILL.md": "Original"})
+
+        replacement = tmp_path / "other" / "my-skill"
+        replacement.mkdir(parents=True)
+        (replacement / "SKILL.md").write_text("Replacement", encoding="utf-8")
+
+        RenderGlobalSkill(dm, original, agent)
+        RenderGlobalSkill(dm, replacement, agent)
+
+        destination = tmp_path / "skills" / "my-skill"
+
+        assert destination.resolve() == replacement.resolve()
+        assert (original / "SKILL.md").read_text(encoding="utf-8") == "Original"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_templates_replace_previously_linked_directory(
+        self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        RenderGlobalSkill(dm, template_path, agent)
+
+        (template_path / "extra.jinja.md").write_text("Extra: {{ 1 + 1 }}", encoding="utf-8")
+
+        RenderGlobalSkill(dm, template_path, agent)
+
+        destination = tmp_path / "skills" / "my-skill"
+
+        assert not destination.is_symlink()
+        assert destination.joinpath("extra.md").read_text(encoding="utf-8") == "Extra: 2"
+        assert destination.joinpath("SKILL.md").resolve() == template_path.resolve() / "SKILL.md"
+        assert sorted(path.name for path in template_path.iterdir()) == ["SKILL.md", "extra.jinja.md"]
+
+    # ----------------------------------------------------------------------
+    def test_link_over_directory_containing_source_writes_error(self, tmp_path: Path, monkeypatch):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+
+        destination = tmp_path / "skills" / "my-skill"
+        template_path = destination / "sources" / "my-skill"
+        template_path.mkdir(parents=True)
+        (template_path / "SKILL.md").write_text("Body", encoding="utf-8")
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        resolved = template_path.resolve()
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{destination}' to '{resolved}'...
+                ERROR: '{destination}' cannot be replaced by a symbolic link to '{resolved}' because it contains '{resolved}'.
+              DONE! (-1, <scrubbed duration>)
+            DONE! (-1, <scrubbed duration>)
+            """)
+        assert (template_path / "SKILL.md").read_text(encoding="utf-8") == "Body"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_link_replaces_link_to_directory_containing_source(
+        self, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+
+        other = tmp_path / "other"
+        template_path = other / "sources" / "my-skill"
+        template_path.mkdir(parents=True)
+        (template_path / "SKILL.md").write_text("Body", encoding="utf-8")
+
+        destination = tmp_path / "skills" / "my-skill"
+        destination.parent.mkdir(parents=True)
+        destination.symlink_to(other, target_is_directory=True)
+
+        RenderGlobalSkill(dm, template_path, agent)
+
+        assert destination.resolve() == template_path.resolve()
+        assert (template_path / "SKILL.md").read_text(encoding="utf-8") == "Body"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_rendering_linked_directory_again_preserves_link(
+        self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        RenderGlobalSkill(dm, template_path, agent)
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        destination = tmp_path / "skills" / "my-skill"
+        resolved = template_path.resolve()
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{destination}' to '{resolved}'...DONE! (0, <scrubbed duration>)
+            DONE! (0, <scrubbed duration>)
+            """)
+        assert destination.is_symlink()
+        assert destination.resolve() == resolved
+        assert (template_path / "SKILL.md").read_text(encoding="utf-8") == "Body"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlinks")
+    def test_file_link_over_directory_preserves_directory(
+        self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.jinja.md": "Body", "reference.md": "Reference"})
+
+        existing = tmp_path / "skills" / "my-skill" / "reference.md"
+        existing.mkdir(parents=True)
+        (existing / "notes.md").write_text("Notes", encoding="utf-8")
+
+        with pytest.raises(OSError):
+            RenderGlobalSkill(dm, template_path, agent)
+
+        assert (existing / "notes.md").read_text(encoding="utf-8") == "Notes"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.usefixtures("symlink_failure")
+    def test_directory_link_failure_preserves_existing_directory(
+        self, skill_dir, tmp_path: Path, monkeypatch
+    ):
+        for var in ("HOME", "USERPROFILE", "APPDATA"):
+            monkeypatch.setenv(var, str(tmp_path))
+
+        agent = _MakeNestedSkillAgent()
+        template_path = skill_dir({"SKILL.md": "Body"})
+
+        destination = tmp_path / "skills" / "my-skill"
+        destination.mkdir(parents=True)
+        (destination / "SKILL.md").write_text("Existing", encoding="utf-8")
+
+        content = _RunCapturingContent(lambda dm: RenderGlobalSkill(dm, template_path, agent))
+
+        resolved = template_path.resolve()
+
+        assert content == dedent(f"""\
+            Heading...
+              Linking '{destination}' to '{resolved}'...
+                ERROR: A symbolic link to '{resolved}' could not be created at '{destination}' (Symbolic links are unavailable.); enable 'copy' to copy it instead.
+              DONE! (-1, <scrubbed duration>)
+            DONE! (-1, <scrubbed duration>)
+            """)
+        assert (destination / "SKILL.md").read_text(encoding="utf-8") == "Existing"
+
+    # ----------------------------------------------------------------------
     def test_copy_writes_every_file(self, skill_dir, tmp_path: Path, monkeypatch, dm: DoneManager):
         for var in ("HOME", "USERPROFILE", "APPDATA"):
             monkeypatch.setenv(var, str(tmp_path))
@@ -1275,7 +1494,7 @@ class TestRenderGlobalSkillDirectory:
         assert content == dedent(f"""\
             Heading...
               Linking '{link}' to '{source}'...
-                ERROR: A symbolic link to '{source}' could not be created at '{link}' (Symbolic links are unavailable.); enable 'copy' to copy the file instead.
+                ERROR: A symbolic link to '{source}' could not be created at '{link}' (Symbolic links are unavailable.); enable 'copy' to copy it instead.
               DONE! (-1, <scrubbed duration>)
             DONE! (-1, <scrubbed duration>)
             """)

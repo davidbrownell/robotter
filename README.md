@@ -231,6 +231,8 @@ Directory templates differ from single-file templates in the following ways:
 
 Template files (those with a `.jinja` or `.jinja2` extension) are rendered with frontmatter preserved exactly as it is for a single-file template. Every other file is reproduced byte for byte (linked when rendering globally, copied otherwise), so images, scripts, and data files are never corrupted by having a leading `---` consumed as frontmatter. Symbolic links are created before any template is written, so a host that cannot create them fails without writing any files.
 
+When rendering globally, a directory that contains no templates is installed as a single symbolic link to the source directory, replacing any existing skill directory, so files later added to or removed from the source take effect without rendering again.
+
 All files are rendered before any file is written, so a malformed template fails without leaving a partially installed skill behind. A failure during the writes themselves (a permission error, a full disk) can still leave the skill incomplete.
 
 `render_skill` fails, writing nothing, when the directory is empty, when it does not produce a top-level `SKILL.md`, when multiple files produce the same output filename (for example, `SKILL.md` and `SKILL.jinja.md`), when a file's output name matches a directory (for example, `scripts.jinja` and `scripts/run.py`), or when the directory name is not a valid skill name.

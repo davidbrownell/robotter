@@ -1,6 +1,7 @@
 """High-level operations that render templates into agent configuration locations."""
 
 import os
+import shutil
 import subprocess
 import sys
 
@@ -270,6 +271,17 @@ def _RenderSkillDirectory(
         (destination_root / output, source, _RenderTemplate(source)) for source, output in sources
     ]
 
+    # Without templates, the destination is identical to the source, so linking the directory
+    # (rather than each file) also reflects files later added to or removed from the source.
+    if allow_symlink and all(content is None for _, _, content in destinations):
+        _LinkPath(dm, destination_root, template)
+        return
+
+    # A directory linked by a previous render is the source itself; writing through the link
+    # would place rendered files in the source.
+    if destination_root.is_symlink():
+        destination_root.unlink()
+
     # Symbolic links usually fail for every file (for example, when the process lacks the privilege
     # to create them), so creating them first means such a failure writes nothing.
     if allow_symlink:
@@ -390,19 +402,29 @@ def _WriteOutput(
         _WriteFile(dm, path, source.read_bytes())
         return True
 
-    return _LinkFile(dm, path, source)
+    return _LinkPath(dm, path, source)
 
 
 # ----------------------------------------------------------------------
-def _LinkFile(dm: DoneManager, path: Path, source: Path) -> bool:
-    """Replace `path` with a symbolic link to `source`, returning False (after writing an error) on failure."""
+def _LinkPath(dm: DoneManager, path: Path, source: Path) -> bool:
+    """Replace `path` with a symbolic link to `source` (a file or directory), returning False (after writing an error) on failure."""
 
     source = source.resolve()
 
     with dm.Nested(f"Linking '{path}' to '{source}'...") as nested_dm:
+        resolved_path = path.resolve()
+
         # `path` is already `source` (or a link to it); replacing it would destroy the source.
-        if path.resolve() == source:
+        if resolved_path == source:
             return True
+
+        # Replacing a directory that contains `source` would delete the source along with it. A link
+        # is removed without touching its target, so it is safe to replace.
+        if not path.is_symlink() and source.is_relative_to(resolved_path):
+            nested_dm.WriteError(
+                f"'{path}' cannot be replaced by a symbolic link to '{source}' because it contains '{source}'.",
+            )
+            return False
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -412,14 +434,23 @@ def _LinkFile(dm: DoneManager, path: Path, source: Path) -> bool:
         temp_path.unlink(missing_ok=True)
 
         try:
-            temp_path.symlink_to(source)
+            # Windows creates file links by default, which cannot be traversed as directories.
+            temp_path.symlink_to(source, target_is_directory=source.is_dir())
         except OSError as ex:
             nested_dm.WriteError(
-                f"A symbolic link to '{source}' could not be created at '{path}' ({ex}); enable 'copy' to copy the file instead.",
+                f"A symbolic link to '{source}' could not be created at '{path}' ({ex}); enable 'copy' to copy it instead.",
             )
             return False
 
         try:
+            # `replace` cannot move a link over a directory (or, on Windows, over a link to one).
+            # Only a directory link replaces a directory; a file link over one fails rather than
+            # deleting its contents.
+            if path.is_symlink():
+                path.unlink()
+            elif path.is_dir() and source.is_dir():
+                shutil.rmtree(path)
+
             temp_path.replace(path)
         finally:
             temp_path.unlink(missing_ok=True)
