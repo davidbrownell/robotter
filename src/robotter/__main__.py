@@ -1,7 +1,10 @@
 # noqa: D100
+import tempfile
+
+from contextlib import contextmanager
 from enum import StrEnum
-from pathlib import Path  # noqa: TC003
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, TYPE_CHECKING
 
 import typer
 
@@ -22,6 +25,7 @@ from robotter.Lib import (
     RenderLocal,
     RenderLocalSkill,
 )
+from robotter.Remote import Download, IsUrl
 from robotter.agents.Agent import Agent  # noqa: TC001
 from robotter.agents.ClaudeCode import ClaudeCode
 from robotter.agents.Cline import Cline
@@ -31,6 +35,9 @@ from robotter.agents.GitHubCopilot import GitHubCopilot
 from robotter.agents.Grok import Grok
 from robotter.agents.OpenAICodex import OpenAICodex
 from robotter.agents.OpenCode import OpenCode
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 # ----------------------------------------------------------------------
@@ -68,6 +75,45 @@ class NaturalOrderGrouper(TyperGroup):  # noqa: D101
 
 
 # ----------------------------------------------------------------------
+def _ValidateTemplate(value: str) -> str:
+    """Resolve a local template path, leaving URLs to be downloaded later."""
+
+    if IsUrl(value):
+        return value
+
+    path = Path(value).resolve()
+
+    if not path.exists():
+        msg = f"'{value}' does not exist."
+        raise typer.BadParameter(msg)
+
+    return str(path)
+
+
+# ----------------------------------------------------------------------
+@contextmanager
+def _ResolveTemplate(dm: DoneManager, template: str) -> Iterator[Path | None]:
+    """Yield the local path of `template`, or `None` (after writing an error) if it could not be downloaded."""
+
+    if not IsUrl(template):
+        yield Path(template)
+        return
+
+    # Downloads are discarded after rendering, which is why remote templates are always copied
+    # rather than linked.
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path: Path | None = None
+
+        with dm.Nested(f"Downloading '{template}'...") as nested_dm:
+            try:
+                path = Download(template, Path(temp_dir))
+            except Exception as ex:
+                nested_dm.WriteError(f"'{template}' could not be downloaded: {ex}")
+
+        yield path
+
+
+# ----------------------------------------------------------------------
 app = typer.Typer(
     cls=NaturalOrderGrouper,
     help=__doc__,
@@ -81,12 +127,10 @@ app = typer.Typer(
 @app.command("render", no_args_is_help=True)
 def Render(
     template: Annotated[
-        Path,
+        str,
         typer.Argument(
-            exists=True,
-            dir_okay=False,
-            resolve_path=True,
-            help="Template file to render.",
+            callback=_ValidateTemplate,
+            help="Template file to render, as a path or URL.",
         ),
     ],
     agent: Annotated[
@@ -126,22 +170,31 @@ def Render(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Rendering '{agent.name}'...") as nested_dm:
+        with (
+            dm.Nested(f"Rendering '{agent.name}'...") as nested_dm,
+            _ResolveTemplate(nested_dm, template) as template_path,
+        ):
+            if template_path is None:
+                return
+
+            if template_path.is_dir():
+                nested_dm.WriteError(f"The template '{template}' is a directory.")
+                return
+
             if output_dir is None:
-                RenderGlobal(nested_dm, template, agent_instance, copy=copy)
+                RenderGlobal(nested_dm, template_path, agent_instance, copy=copy or IsUrl(template))
             else:
-                RenderLocal(nested_dm, template, agent_instance, output_dir)
+                RenderLocal(nested_dm, template_path, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------
 @app.command("render_skill", no_args_is_help=True)
 def RenderSkill(
     template: Annotated[
-        Path,
+        str,
         typer.Argument(
-            exists=True,
-            resolve_path=True,
-            help="Skill template file to render, or a directory whose files are each rendered into a skill named after the directory.",
+            callback=_ValidateTemplate,
+            help="Skill template file to render, or a directory whose files are each rendered into a skill named after the directory, as a path or URL (including a GitHub directory URL).",
         ),
     ],
     agent: Annotated[
@@ -181,11 +234,17 @@ def RenderSkill(
     ) as dm:
         agent_instance = _AGENTS[agent]()
 
-        with dm.Nested(f"Rendering skill '{agent.name}'...") as nested_dm:
+        with (
+            dm.Nested(f"Rendering skill '{agent.name}'...") as nested_dm,
+            _ResolveTemplate(nested_dm, template) as template_path,
+        ):
+            if template_path is None:
+                return
+
             if output_dir is None:
-                RenderGlobalSkill(nested_dm, template, agent_instance, copy=copy)
+                RenderGlobalSkill(nested_dm, template_path, agent_instance, copy=copy or IsUrl(template))
             else:
-                RenderLocalSkill(nested_dm, template, agent_instance, output_dir)
+                RenderLocalSkill(nested_dm, template_path, agent_instance, output_dir)
 
 
 # ----------------------------------------------------------------------

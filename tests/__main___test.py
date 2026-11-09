@@ -772,3 +772,156 @@ class TestIntegration:
 
         assert result.exit_code == 0, result.output
         assert (output_dir / "AGENTS.md").read_text(encoding="utf-8") == "Value: 3"
+
+
+# ----------------------------------------------------------------------
+class TestRemoteTemplates:
+    _URL = "https://github.com/owner/repo/blob/main/template.md"
+
+    # ----------------------------------------------------------------------
+    @pytest.fixture
+    def download(self, monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+        """Replace the download so that a URL produces a local file without network access."""
+
+        def Download(url: str, output_dir: Path) -> Path:
+            path = output_dir / url.rsplit("/", 1)[-1]
+            path.write_text("content", encoding="utf-8")
+            return path
+
+        download = MagicMock(side_effect=Download)
+        monkeypatch.setattr(main_module, "Download", download)
+
+        return download
+
+    # ----------------------------------------------------------------------
+    def test_render_global_copies_downloaded_template(
+        self,
+        download: MagicMock,
+        render_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global, render_local = render_spies
+
+        result = runner.invoke(app, ["render", self._URL, AgentType.ClaudeCode.value])
+
+        assert result.exit_code == 0, result.output
+        download.assert_called_once()
+        assert download.call_args.args[0] == self._URL
+        render_local.assert_not_called()
+
+        passed_template = render_global.call_args.args[1]
+        assert passed_template == download.call_args.args[1] / "template.md"
+        assert render_global.call_args.kwargs == {"copy": True}
+
+    # ----------------------------------------------------------------------
+    def test_render_local_uses_downloaded_template(
+        self,
+        download: MagicMock,
+        tmp_path: Path,
+        render_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global, render_local = render_spies
+
+        result = runner.invoke(app, ["render", self._URL, AgentType.ClaudeCode.value, str(tmp_path)])
+
+        assert result.exit_code == 0, result.output
+        render_global.assert_not_called()
+        assert render_local.call_args.args[1] == download.call_args.args[1] / "template.md"
+
+    # ----------------------------------------------------------------------
+    def test_render_downloaded_directory_fails(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capfd: pytest.CaptureFixture[str],
+        render_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global, render_local = render_spies
+        monkeypatch.setattr(main_module, "Download", lambda _url, output_dir: output_dir)
+
+        result = runner.invoke(app, ["render", self._URL, AgentType.ClaudeCode.value])
+
+        assert result.exit_code != 0
+        assert f"ERROR: The template '{self._URL}' is a directory." in capfd.readouterr().out
+        render_global.assert_not_called()
+        render_local.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_render_skill_global_copies_downloaded_template(
+        self,
+        download: MagicMock,
+        render_skill_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global_skill, render_local_skill = render_skill_spies
+
+        result = runner.invoke(app, ["render_skill", self._URL, AgentType.ClaudeCode.value])
+
+        assert result.exit_code == 0, result.output
+        render_local_skill.assert_not_called()
+        assert render_global_skill.call_args.args[1] == download.call_args.args[1] / "template.md"
+        assert render_global_skill.call_args.kwargs == {"copy": True}
+
+    # ----------------------------------------------------------------------
+    def test_render_skill_local_uses_downloaded_template(
+        self,
+        download: MagicMock,
+        tmp_path: Path,
+        render_skill_spies: tuple[MagicMock, MagicMock],
+    ):
+        render_global_skill, render_local_skill = render_skill_spies
+
+        result = runner.invoke(app, ["render_skill", self._URL, AgentType.ClaudeCode.value, str(tmp_path)])
+
+        assert result.exit_code == 0, result.output
+        render_global_skill.assert_not_called()
+        assert render_local_skill.call_args.args[1] == download.call_args.args[1] / "template.md"
+
+    # ----------------------------------------------------------------------
+    @pytest.mark.parametrize("command", ["render", "render_skill"])
+    def test_download_failure_fails(
+        self,
+        command: str,
+        monkeypatch: pytest.MonkeyPatch,
+        capfd: pytest.CaptureFixture[str],
+        render_spies: tuple[MagicMock, MagicMock],
+        render_skill_spies: tuple[MagicMock, MagicMock],
+    ):
+        monkeypatch.setattr(main_module, "Download", MagicMock(side_effect=ValueError("Boom")))
+
+        result = runner.invoke(app, [command, self._URL, AgentType.ClaudeCode.value])
+
+        assert result.exit_code != 0
+        assert f"ERROR: '{self._URL}' could not be downloaded: Boom" in capfd.readouterr().out
+
+        for spy in (*render_spies, *render_skill_spies):
+            spy.assert_not_called()
+
+    # ----------------------------------------------------------------------
+    def test_downloaded_template_is_removed_after_rendering(
+        self,
+        download: MagicMock,
+        render_spies: tuple[MagicMock, MagicMock],
+    ):
+        result = runner.invoke(app, ["render", self._URL, AgentType.ClaudeCode.value])
+
+        assert result.exit_code == 0, result.output
+        assert not download.call_args.args[1].exists()
+
+
+# ----------------------------------------------------------------------
+class TestRemoteIntegration:
+    # ----------------------------------------------------------------------
+    def test_local_render_writes_downloaded_template(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+        def Download(_url: str, output_dir: Path) -> Path:
+            path = output_dir / "template.jinja.md"
+            path.write_text("Value: {{ 1 + 2 }}", encoding="utf-8")
+            return path
+
+        monkeypatch.setattr(main_module, "Download", Download)
+        output_dir = tmp_path / "out"
+
+        result = runner.invoke(
+            app,
+            ["render", "https://example.com/template.jinja.md", AgentType.ClaudeCode.value, str(output_dir)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (output_dir / "AGENTS.md").read_text(encoding="utf-8") == "Value: 3"

@@ -68,6 +68,8 @@ Only files whose names include a `.jinja` or `.jinja2` extension are rendered as
 
 When rendering globally, a file that is not a template is installed as a symbolic link to its source, so edits to the source take effect without rendering again. Templates are always written as files, and project-level rendering always copies. Pass `--copy` to copy non-template files instead of linking them. If a symbolic link cannot be created (for example, on Windows without Developer Mode or administrator rights), rendering fails; pass `--copy` to render anyway.
 
+A `<template>` may also be an `http`/`https` URL. A GitHub URL to a file (`https://github.com/<owner>/<repo>/blob/<ref>/<path>`) or a directory (`https://github.com/<owner>/<repo>/tree/<ref>/<path>`) is downloaded through the GitHub API; any other URL is downloaded as a single file named after the last segment of its path. Downloaded templates are always copied, since the download is discarded after rendering. Only the referenced file or directory is downloaded, so `include_configuration` can only reach files within a downloaded directory. Set the `GITHUB_TOKEN` environment variable to access private repositories or to raise GitHub's API rate limit. Each downloaded file is limited to 10 MB, and a downloaded directory is limited to 500 files and directories and 50 MB in total.
+
 ### How to use `robotter`
 Render a template to an agent's configuration location(s):
 
@@ -77,7 +79,7 @@ uvx robotter render <template> <agent> [<dir>] [--copy] [--verbose] [--debug]
 
 | Argument / Option | Description |
 | --- | --- |
-| `<template>` | Path to the template file to render. |
+| `<template>` | Path or [URL](#overview) of the template file to render. |
 | `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render project-level configuration under this directory. When omitted, global (user-level) configuration is rendered. |
 | `--copy` | Copy a non-template file instead of creating a symbolic link to it when rendering globally. Project-level rendering always copies. |
@@ -152,7 +154,7 @@ uvx robotter render_skill <template> <agent> [<dir>] [--copy] [--verbose] [--deb
 
 | Argument / Option | Description |
 | --- | --- |
-| `<template>` | Path to the skill template file to render, or to a [skill template directory](#skill-template-directories) whose files are each rendered into a skill named after the directory. |
+| `<template>` | Path or [URL](#overview) of the skill template file to render, or of a [skill template directory](#skill-template-directories) whose files are each rendered into a skill named after the directory. |
 | `<agent>` | Target agent: `claude-code`, `cline`, `cursor`, `gemini-cli`, `github-copilot`, `grok`, `openai-codex`, or `opencode`. |
 | `<dir>` | Render the project-level skill under this directory. When omitted, the global (user-level) skill is rendered. |
 | `--copy` | Copy non-template files instead of creating symbolic links to them when rendering globally. Project-level rendering always copies. |
@@ -252,6 +254,12 @@ Render the `review/` directory to the project-level Claude Code skill under `./m
 
 ```shell
 uvx robotter render_skill review claude-code ./my-project
+```
+
+Render a skill directory hosted on GitHub to the current user's global Claude Code skill location (`~/.claude/skills/prepare-pr/`):
+
+```shell
+uvx robotter render_skill https://github.com/davidbrownell/dotfiles/tree/main/robotter/skills/prepare-pr claude-code
 ```
 
 ### Editing an agent's configuration
